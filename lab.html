@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Monkey and Hunter Physics Lab</title>
+    <title>Fixed Monkey and Hunter Physics Lab</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
       body { margin: 0; padding: 0; background-color: #1e272e; font-family: system-ui, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; justify-content: center; }
@@ -36,24 +36,24 @@
       <div class="data-box">Status<div id="val-status" class="data-val" style="color:#4cd137;">Ready</div></div>
     </div>
 
-    <!-- Main Canvas Frame -->
+    <!-- Main Workspace Canvas -->
     <div id="canvas-wrapper">
       <canvas id="paintCanvas" width="1600" height="900"></canvas>
     </div>
 
-    <!-- Sliders Configuration Panel -->
+    <!-- Configuration Controllers Panel -->
     <div id="settings-panel">
       <div class="slider-group">
-        <label>Firing Speed: <span id="lbl-speed" style="color:#00a8ff;">1200 m/s</span></label>
-        <input type="range" id="sld-speed" min="700" max="2500" value="1200" oninput="updateSliders()">
+        <label>Firing Speed: <span id="lbl-speed" style="color:#00a8ff;">1500 m/s</span></label>
+        <input type="range" id="sld-speed" min="700" max="2500" value="1500" oninput="updateSliders()">
       </div>
       <div class="slider-group">
-        <label>Monkey Position: <span id="lbl-height" style="color:#e74c3c;">700m</span></label>
+        <label>Monkey Tree Position: <span id="lbl-height" style="color:#e74c3c;">700m</span></label>
         <input type="range" id="sld-height" min="300" max="800" value="700" oninput="updateSliders()">
       </div>
     </div>
 
-    <!-- Controls Actions Menu -->
+    <!-- Primary Control Array -->
     <div id="controls">
       <button id="fire-btn" onclick="toggleSimulation()">FIRE</button>
       <button id="slow-btn" onclick="toggleSlowMo()">SLOW-MO: OFF</button>
@@ -64,7 +64,7 @@
       const ctx = canvas.getContext('2d');
 
       const g = 9.8 * 80; 
-      let launchVelocity = 1200; 
+      let launchVelocity = 1500; 
       let timeSpeedScale = 1.0; 
 
       const hunter = { x: 100, y: 800 };   
@@ -96,7 +96,7 @@
       function drawLaboratoryEnvironment() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 1. Draw Grid Lines
+        // 1. Grid Background
         ctx.strokeStyle = '#2c3e50';
         ctx.lineWidth = 1;
         for (let x = 0; x < canvas.width; x += 80) {
@@ -106,14 +106,14 @@
           ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         }
 
-        // 2. Draw Vector Path Trails
+        // 2. Trajectory Tracking Trails
         ctx.fillStyle = 'rgba(52, 152, 219, 0.4)'; 
         bulletHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fill(); });
 
         ctx.fillStyle = 'rgba(231, 76, 60, 0.4)';  
         monkeyHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fill(); });
 
-        // 3. Draw Laser Vector Aiming Axis
+        // 3. Aim Line
         if (!isSimulating) {
           ctx.strokeStyle = '#00f3ff';
           ctx.lineWidth = 3;
@@ -123,15 +123,17 @@
           ctx.stroke();
         }
 
-        // 4. Render Nodes
+        // 4. Hunter Device
         ctx.fillStyle = '#4cd137';
         ctx.beginPath(); ctx.arc(hunter.x, hunter.y, 25, 0, Math.PI * 2); ctx.fill();
 
+        // 5. Monkey Target
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath(); ctx.arc(monkey.x, monkey.y, 30, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#ffffff';
         ctx.beginPath(); ctx.arc(monkey.x, monkey.y, 10, 0, Math.PI * 2); ctx.fill();
 
+        // 6. Projectile Ball
         if (isSimulating || runtimeElapsed > 0) {
           ctx.fillStyle = '#00a8ff';
           ctx.beginPath(); ctx.arc(bullet.x, bullet.y, 15, 0, Math.PI * 2); ctx.fill();
@@ -216,7 +218,7 @@
           isSimulating = false;
           document.getElementById('val-status').innerText = "Grounded";
           document.getElementById('val-status').style.color = '#718093';
-          alert(`MISSED!\nThe bullet hit the ground before crossing the distance. Increase your "Firing Speed"!`);
+          alert(`MISSED!\nThe bullet hit the ground before crossing the distance. Try increasing the Firing Speed slider!`);
           return;
         }
 
@@ -234,4 +236,3 @@
         bullet.x = 100; bullet.y = 800;
         
         document.getElementById('fire-btn').innerText = "FIRE";
-        document.getElementById('fire-btn').style.backgroundColor = '#4cd137';

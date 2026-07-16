@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Monkey and Hunter - Realistic Scale</title>
+    <title>Monkey and Hunter - Adjustable X & Y</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <script>
@@ -21,7 +21,8 @@
       #canvas-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 10px; border: 2px solid #485460; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden; }
       canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
       
-      #settings-panel { width: 90%; max-width: 800px; background: #2f3640; padding: 12px; border-radius: 10px; margin-top: 10px; box-sizing: border-box; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+      /* Updated to grid-template-columns: repeat(3, 1fr) to hold 3 sliders */
+      #settings-panel { width: 90%; max-width: 800px; background: #2f3640; padding: 12px; border-radius: 10px; margin-top: 10px; box-sizing: border-box; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
       .slider-group { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
       .slider-group label { display: flex; justify-content: space-between; margin-bottom: 5px; color: #dcdde1; }
       input[type=range] { width: 100%; accent-color: #00a8ff; cursor: pointer; }
@@ -52,13 +53,15 @@
     <!-- Configuration Controllers Panel -->
     <div id="settings-panel">
       <div class="slider-group">
-        <!-- Speed scaled down for a realistic 7m horizontal gap -->
         <label>Firing Speed: <span id="lbl-speed" style="color:#00a8ff;">15 m/s</span></label>
         <input type="range" id="sld-speed" min="8" max="30" value="15" step="1" oninput="updateSliders()">
       </div>
       <div class="slider-group">
-        <!-- Height strictly capped at 4.0 meters -->
-        <label>Monkey Tree Position: <span id="lbl-height" style="color:#e74c3c;">4.0 m</span></label>
+        <label>Distance (X): <span id="lbl-dist" style="color:#f39c12;">7.0 m</span></label>
+        <input type="range" id="sld-dist" min="2.0" max="7.5" value="7.0" step="0.1" oninput="updateSliders()">
+      </div>
+      <div class="slider-group">
+        <label>Height (Y): <span id="lbl-height" style="color:#e74c3c;">4.0 m</span></label>
         <input type="range" id="sld-height" min="1.0" max="4.0" value="4.0" step="0.1" oninput="updateSliders()">
       </div>
     </div>
@@ -80,9 +83,9 @@
       let launchVelocity = 15; 
       let timeSpeedScale = 1.0; 
       let monkeyStartHeight = 4.0;
+      let monkeyStartX = 7.0;
 
       // Positions in real world METERS
-      // Hunter is locked at 0.5m off the ground, Monkey is locked at 7.0m away.
       let h_m = { x: 0.5, y: 0.5 };
       let monkey_m = { x: 7.0, y: 4.0 };  
       let bullet_m = { x: 0.5, y: 0.5 };
@@ -105,6 +108,9 @@
 
         launchVelocity = parseFloat(document.getElementById('sld-speed').value);
         document.getElementById('lbl-speed').innerText = launchVelocity + " m/s";
+
+        monkeyStartX = parseFloat(document.getElementById('sld-dist').value);
+        document.getElementById('lbl-dist').innerText = monkeyStartX.toFixed(1) + " m";
 
         monkeyStartHeight = parseFloat(document.getElementById('sld-height').value);
         document.getElementById('lbl-height').innerText = monkeyStartHeight.toFixed(1) + " m";
@@ -197,6 +203,7 @@
         document.getElementById('val-status').style.color = '#00a8ff';
         
         document.getElementById('sld-speed').disabled = true;
+        document.getElementById('sld-dist').disabled = true;
         document.getElementById('sld-height').disabled = true;
 
         requestAnimationFrame(simulationLoopProcessing);
@@ -212,7 +219,7 @@
         let t = runtimeElapsed;
 
         // Vector math in strict meters
-        const dx_m = monkey_m.x - h_m.x;
+        const dx_m = monkeyStartX - h_m.x;
         const dy_m = monkeyStartHeight - h_m.y;
         const targetHypotenuse = Math.sqrt(dx_m*dx_m + dy_m*dy_m);
 
@@ -272,7 +279,7 @@
         bulletHistory = [];
         monkeyHistory = [];
         
-        monkey_m = { x: 7.0, y: monkeyStartHeight };
+        monkey_m = { x: monkeyStartX, y: monkeyStartHeight };
         bullet_m = { x: 0.5, y: 0.5 };
         
         document.getElementById('fire-btn').innerText = "FIRE";
@@ -281,6 +288,7 @@
         document.getElementById('val-status').style.color = '#4cd137';
         
         document.getElementById('sld-speed').disabled = false;
+        document.getElementById('sld-dist').disabled = false;
         document.getElementById('sld-height').disabled = false;
 
         document.getElementById('val-t').innerText = "0.00s";

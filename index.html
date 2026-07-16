@@ -2,7 +2,11 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Interactive Monkey and Hunter Physics Lab</title>
+    <title>Ultimate Monkey and Hunter Lab</title>
+    <!-- Cache Buster Meta Tags -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
       body { margin: 0; padding: 0; background-color: #1e272e; font-family: system-ui, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; justify-content: center; }
@@ -13,7 +17,6 @@
       #canvas-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 10px; border: 2px solid #485460; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden; }
       canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
       
-      /* New Interactive Adjusters Section */
       #settings-panel { width: 90%; max-width: 800px; background: #2f3640; padding: 12px; border-radius: 10px; margin-top: 10px; box-sizing: border-box; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
       .slider-group { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
       .slider-group label { display: flex; justify-content: space-between; margin-bottom: 5px; color: #dcdde1; }
@@ -29,7 +32,6 @@
   </head>
   <body>
 
-    <!-- Telemetry Readout Dashboard -->
     <div id="ui-container">
       <div class="data-box">Time Elapsed<div id="val-t" class="data-val">0.00s</div></div>
       <div class="data-box">Monkey Height (Y)<div id="val-my" class="data-val">700.0m</div></div>
@@ -37,24 +39,28 @@
       <div class="data-box">Status<div id="val-status" class="data-val" style="color:#4cd137;">Ready</div></div>
     </div>
 
-    <!-- Main Workspace Viewport Canvas -->
+    <!-- Instructions banner -->
+    <div style="font-size: 13px; color: #e1b12c; margin-bottom: 5px; font-weight: bold;">
+      💡 Tip: Drag the sliders below to move the monkey up/down or boost speed!
+    </div>
+
     <div id="canvas-wrapper">
       <canvas id="paintCanvas" width="1600" height="900"></canvas>
     </div>
 
-    <!-- Upgraded Config Controllers Panel -->
     <div id="settings-panel">
       <div class="slider-group">
-        <label>Firing Speed: <span id="lbl-speed" style="color:#00a8ff;">650 m/s</span></label>
-        <input type="range" id="sld-speed" min="300" max="1500" value="650" oninput="updateSliders()">
+        <!-- Boosted default speed limit from 650 to 1100 to guarantee a hit -->
+        <label>Firing Speed: <span id="lbl-speed" style="color:#00a8ff;">1100 m/s</span></label>
+        <input type="range" id="sld-speed" min="500" max="2500" value="1100" oninput="updateSliders()">
       </div>
       <div class="slider-group">
-        <label>Monkey Tree Height: <span id="lbl-height" style="color:#e74c3c;">200px</span></label>
-        <input type="range" id="sld-height" min="100" max="600" value="200" oninput="updateSliders()">
+        <!-- Slider to dynamically change the height of the monkey instantly -->
+        <label>Monkey Tree Height: <span id="lbl-height" style="color:#e74c3c;">700m</span></label>
+        <input type="range" id="sld-height" min="100" max="750" value="200" oninput="updateSliders()">
       </div>
     </div>
 
-    <!-- Primary Control Array -->
     <div id="controls">
       <button id="fire-btn" onclick="toggleSimulation()">FIRE</button>
       <button id="slow-btn" onclick="toggleSlowMo()">SLOW-MO: OFF</button>
@@ -64,8 +70,8 @@
       const canvas = document.getElementById('paintCanvas');
       const ctx = canvas.getContext('2d');
 
-      const g = 9.8 * 80; // Gravity matrix scale factor
-      let launchVelocity = 650; 
+      const g = 9.8 * 80; 
+      let launchVelocity = 1100; // Ultra high velocity starting baseline
       let timeSpeedScale = 1.0; 
 
       const hunter = { x: 100, y: 800 };   
@@ -76,18 +82,18 @@
       let runtimeElapsed = 0;
       let lastFrameTimestamp = 0;
 
-      // Vectors layout arrays to log path dot positions over runtime
       let bulletHistory = [];
       let monkeyHistory = [];
 
       drawLaboratoryEnvironment();
 
       function updateSliders() {
-        if (isSimulating) return; // Prevent changing parameters mid-flight
+        if (isSimulating) return; 
 
         launchVelocity = parseInt(document.getElementById('sld-speed').value);
         document.getElementById('lbl-speed').innerText = launchVelocity + " m/s";
 
+        // Updates the monkey's structural placement matrix directly
         monkey.y = parseInt(document.getElementById('sld-height').value);
         document.getElementById('lbl-height').innerText = (900 - monkey.y) + "m";
 
@@ -107,11 +113,11 @@
           ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         }
 
-        // 2. Render Historical Path Motion Tracking Dots
-        ctx.fillStyle = 'rgba(52, 152, 219, 0.4)'; // Light Blue trail dots for bullet
+        // 2. Render Motion Tracking Dots Trails
+        ctx.fillStyle = 'rgba(52, 152, 219, 0.4)'; 
         bulletHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fill(); });
 
-        ctx.fillStyle = 'rgba(231, 76, 60, 0.4)';  // Light Red trail dots for monkey
+        ctx.fillStyle = 'rgba(231, 76, 60, 0.4)';  
         monkeyHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fill(); });
 
         // 3. Cyan Direct Laser Aim Line
@@ -161,7 +167,6 @@
         document.getElementById('val-status').innerText = "In Flight";
         document.getElementById('val-status').style.color = '#00a8ff';
         
-        // Lock controls during live physics run loops
         document.getElementById('sld-speed').disabled = true;
         document.getElementById('sld-height').disabled = true;
 
@@ -177,7 +182,6 @@
         runtimeElapsed += deltaTime * timeSpeedScale;
         let t = runtimeElapsed;
 
-        // Vector resolution properties
         const monkeyStartHeight = parseInt(document.getElementById('sld-height').value);
         const dx = 1400 - hunter.x;
         const dy = monkeyStartHeight - hunter.y;
@@ -186,7 +190,6 @@
         const vx = (dx / targetHypotenuse) * launchVelocity;
         const vy = (dy / targetHypotenuse) * launchVelocity;
 
-        // Kinematics trajectory equation maps
         let currentMonkeyY = monkeyStartHeight + (0.5 * g * t * t);
         let currentBulletX = 100 + (vx * t);
         let currentBulletY = 800 + (vy * t) + (0.5 * g * t * t);
@@ -195,7 +198,6 @@
         bullet.x = currentBulletX;
         bullet.y = currentBulletY;
 
-        // Log dot steps every frame iteration safely
         bulletHistory.push({ x: bullet.x, y: bullet.y });
         monkeyHistory.push({ x: monkey.x, y: monkey.y });
 
@@ -205,7 +207,6 @@
 
         drawLaboratoryEnvironment();
 
-        // Terminal Intersection Target Collision Checks
         if (bullet.x >= 1400) {
           isSimulating = false;
           bullet.x = 1400;
@@ -220,7 +221,6 @@
           return;
         }
 
-        // Crash floor boundary conditions protection locks
         if (monkey.y > 880 || bullet.y > 880) {
           isSimulating = false;
           document.getElementById('val-status').innerText = "Grounded";

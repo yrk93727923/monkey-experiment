@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Monkey and Hunter - 4x4 Meter Scale</title>
+    <title>Monkey and Hunter - Interactive Dragging</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <script>
@@ -18,10 +18,11 @@
       .data-box { text-align: center; font-size: 13px; }
       .data-val { font-size: 18px; font-weight: bold; color: #00a8ff; margin-top: 3px; }
       
-      #canvas-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 10px; border: 2px solid #485460; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden; }
+      #canvas-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 10px; border: 2px solid #485460; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden; position: relative; }
       
-      /* Changed aspect-ratio to 1/1 to make the grid perfectly square */
-      canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; }
+      /* touch-action: none prevents the page from scrolling while dragging objects on mobile */
+      canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; touch-action: none; cursor: grab; }
+      canvas:active { cursor: grabbing; }
       
       #settings-panel { width: 90%; max-width: 800px; background: #2f3640; padding: 12px; border-radius: 10px; margin-top: 10px; box-sizing: border-box; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
       .slider-group { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
@@ -48,7 +49,6 @@
 
     <!-- Main Workspace Canvas -->
     <div id="canvas-wrapper">
-      <!-- Changed internal resolution to be a square 900x900 (gives 4.5m space so the 4m lines don't get cut off at the edge) -->
       <canvas id="paintCanvas" width="900" height="900"></canvas>
     </div>
 
@@ -59,11 +59,11 @@
         <input type="range" id="sld-speed" min="8" max="30" value="15" step="1" oninput="updateSliders()">
       </div>
       <div class="slider-group">
-        <label>Distance (X): <span id="lbl-dist" style="color:#f39c12;">4.0 m</span></label>
+        <label>Monkey (X): <span id="lbl-dist" style="color:#f39c12;">4.0 m</span></label>
         <input type="range" id="sld-dist" min="1.0" max="4.0" value="4.0" step="0.1" oninput="updateSliders()">
       </div>
       <div class="slider-group">
-        <label>Height (Y): <span id="lbl-height" style="color:#e74c3c;">4.0 m</span></label>
+        <label>Monkey (Y): <span id="lbl-height" style="color:#e74c3c;">4.0 m</span></label>
         <input type="range" id="sld-height" min="1.0" max="4.0" value="4.0" step="0.1" oninput="updateSliders()">
       </div>
     </div>
@@ -84,11 +84,11 @@
       // Target physics variables (in meters)
       let launchVelocity = 15; 
       let timeSpeedScale = 1.0; 
-      let monkeyStartHeight = 4.0;
-      let monkeyStartX = 4.0; 
 
       // Positions in real world METERS
       let h_m = { x: 0.5, y: 0.5 };
+      let monkey_start_m = { x: 4.0, y: 4.0 };
+      
       let monkey_m = { x: 4.0, y: 4.0 }; 
       let bullet_m = { x: 0.5, y: 0.5 };
 
@@ -98,12 +98,88 @@
 
       let bulletHistory = [];
       let monkeyHistory = [];
+      
+      let draggedEntity = null; // 'hunter' or 'monkey'
 
       window.onload = function() {
         canvas = document.getElementById('paintCanvas');
         ctx = canvas.getContext('2d');
+        
+        setupPointerEvents();
         updateSliders();
       };
+
+      // Handle Mouse and Touch Dragging
+      function setupPointerEvents() {
+        canvas.addEventListener('pointerdown', (e) => {
+          if (isSimulating) return; // Prevent dragging while running
+          
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = canvas.width / rect.width;
+          const scaleY = canvas.height / rect.height;
+          
+          const x_px = (e.clientX - rect.left) * scaleX;
+          const y_px = (e.clientY - rect.top) * scaleY;
+          
+          // Convert click coordinates to meters
+          const click_x_m = x_px / pxPerMeter;
+          const click_y_m = (canvas.height - y_px) / pxPerMeter;
+          
+          // Check proximity to Hunter (within ~0.25 meters / 50px)
+          const distH = Math.hypot(h_m.x - click_x_m, h_m.y - click_y_m);
+          // Check proximity to Monkey
+          const distM = Math.hypot(monkey_start_m.x - click_x_m, monkey_start_m.y - click_y_m);
+          
+          if (distH < 0.3) {
+            draggedEntity = 'hunter';
+          } else if (distM < 0.3) {
+            draggedEntity = 'monkey';
+          }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+          if (!draggedEntity || isSimulating) return;
+          
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = canvas.width / rect.width;
+          const scaleY = canvas.height / rect.height;
+          
+          const x_px = (e.clientX - rect.left) * scaleX;
+          const y_px = (e.clientY - rect.top) * scaleY;
+          
+          let x_m = x_px / pxPerMeter;
+          let y_m = (canvas.height - y_px) / pxPerMeter;
+          
+          // Clamp to grid (0.0m to 4.0m)
+          y_m = Math.max(0.1, Math.min(4.0, y_m)); 
+          
+          if (draggedEntity === 'hunter') {
+            // Constrain hunter to the left side of the monkey
+            h_m.x = Math.max(0.1, Math.min(monkey_start_m.x - 0.5, x_m));
+            h_m.y = y_m;
+            // Lock bullet to hunter
+            bullet_m.x = h_m.x;
+            bullet_m.y = h_m.y;
+          } else if (draggedEntity === 'monkey') {
+            // Constrain monkey to the right side of the hunter
+            monkey_start_m.x = Math.max(h_m.x + 0.5, Math.min(4.0, x_m));
+            monkey_start_m.y = y_m;
+            monkey_m.x = monkey_start_m.x;
+            monkey_m.y = monkey_start_m.y;
+            
+            // Sync the UI Sliders with the drag
+            document.getElementById('sld-dist').value = monkey_start_m.x;
+            document.getElementById('sld-height').value = monkey_start_m.y;
+            document.getElementById('lbl-dist').innerText = monkey_start_m.x.toFixed(1) + " m";
+            document.getElementById('lbl-height').innerText = monkey_start_m.y.toFixed(1) + " m";
+          }
+          
+          drawLaboratoryEnvironment();
+        });
+
+        canvas.addEventListener('pointerup', () => { draggedEntity = null; });
+        canvas.addEventListener('pointerleave', () => { draggedEntity = null; });
+      }
 
       function updateSliders() {
         if (isSimulating) return; 
@@ -111,11 +187,16 @@
         launchVelocity = parseFloat(document.getElementById('sld-speed').value);
         document.getElementById('lbl-speed').innerText = launchVelocity + " m/s";
 
-        monkeyStartX = parseFloat(document.getElementById('sld-dist').value);
-        document.getElementById('lbl-dist').innerText = monkeyStartX.toFixed(1) + " m";
+        monkey_start_m.x = parseFloat(document.getElementById('sld-dist').value);
+        document.getElementById('lbl-dist').innerText = monkey_start_m.x.toFixed(1) + " m";
 
-        monkeyStartHeight = parseFloat(document.getElementById('sld-height').value);
-        document.getElementById('lbl-height').innerText = monkeyStartHeight.toFixed(1) + " m";
+        monkey_start_m.y = parseFloat(document.getElementById('sld-height').value);
+        document.getElementById('lbl-height').innerText = monkey_start_m.y.toFixed(1) + " m";
+
+        // Prevent crossing via sliders
+        if (h_m.x >= monkey_start_m.x) {
+            h_m.x = monkey_start_m.x - 0.5;
+        }
 
         resetSimulationState();
       }
@@ -152,7 +233,7 @@
         let b_px = bullet_m.x * pxPerMeter;
         let b_py = canvas.height - (bullet_m.y * pxPerMeter);
 
-        // 2. Trajectory Tracking Trails (Drawn in pixels)
+        // 2. Trajectory Tracking Trails
         ctx.fillStyle = 'rgba(52, 152, 219, 0.5)'; 
         bulletHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill(); });
 
@@ -163,25 +244,38 @@
         if (!isSimulating) {
           ctx.strokeStyle = '#00f3ff';
           ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]);
           ctx.beginPath();
           ctx.moveTo(h_px, h_py);
           ctx.lineTo(m_px, m_py);
           ctx.stroke();
+          ctx.setLineDash([]);
         }
 
         // 4. Hunter Device
         ctx.fillStyle = '#4cd137';
-        ctx.beginPath(); ctx.arc(h_px, h_py, 15, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(h_px, h_py, 18, 0, Math.PI * 2); ctx.fill();
 
         // 5. Monkey Target (Red circle with white center)
         ctx.fillStyle = '#e74c3c';
-        ctx.beginPath(); ctx.arc(m_px, m_py, 15, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(m_px, m_py, 18, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.arc(m_px, m_py, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(m_px, m_py, 6, 0, Math.PI * 2); ctx.fill();
 
-        // 6. Projectile Ball (Always Visible)
+        // 6. Projectile Ball (Drawn clearly on top)
         ctx.fillStyle = '#00a8ff';
-        ctx.beginPath(); ctx.arc(b_px, b_py, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(b_px, b_py, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+        // 7. Render Coordinates Text labels
+        ctx.fillStyle = '#4cd137';
+        ctx.font = 'bold 16px sans-serif';
+        // Adjust text placement depending on where it is on screen so it doesn't clip
+        ctx.fillText(`Gun: (${h_m.x.toFixed(2)}m, ${h_m.y.toFixed(2)}m)`, h_px - 40, h_py + 35);
+        
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillText(`Monkey: (${monkey_m.x.toFixed(2)}m, ${monkey_m.y.toFixed(2)}m)`, m_px - 60, m_py - 25);
       }
 
       function toggleSimulation() {
@@ -220,16 +314,16 @@
         runtimeElapsed += deltaTime * timeSpeedScale;
         let t = runtimeElapsed;
 
-        // Vector math in strict meters
-        const dx_m = monkeyStartX - h_m.x;
-        const dy_m = monkeyStartHeight - h_m.y;
+        // Vector math using the dynamic hunter position
+        const dx_m = monkey_start_m.x - h_m.x;
+        const dy_m = monkey_start_m.y - h_m.y;
         const targetHypotenuse = Math.sqrt(dx_m*dx_m + dy_m*dy_m);
 
         const vx_m = (dx_m / targetHypotenuse) * launchVelocity;
         const vy_m = (dy_m / targetHypotenuse) * launchVelocity;
 
-        // Pure real-world kinematic equations
-        let currentMonkeyY = monkeyStartHeight - (0.5 * g * t * t);
+        // Kinematic equations
+        let currentMonkeyY = monkey_start_m.y - (0.5 * g * t * t);
         let currentBulletX = h_m.x + (vx_m * t);
         let currentBulletY = h_m.y + (vy_m * t) - (0.5 * g * t * t);
 
@@ -248,8 +342,8 @@
 
         drawLaboratoryEnvironment();
 
-        // 1. Check for Hit (Crossed the horizontal gap)
-        if (bullet_m.x >= monkey_m.x) {
+        // 1. Check for Hit (Crossed the horizontal gap based on velocity direction)
+        if ((vx_m > 0 && bullet_m.x >= monkey_m.x) || (vx_m < 0 && bullet_m.x <= monkey_m.x)) {
           isSimulating = false;
           bullet_m.x = monkey_m.x;
           bullet_m.y = monkey_m.y; 
@@ -259,7 +353,7 @@
           document.getElementById('val-status').style.color = '#4cd137';
           document.getElementById('val-by').innerText = Math.max(0, monkey_m.y).toFixed(2) + "m";
           
-          alert(`DIRECT HIT!\nFlight time: ${t.toFixed(2)}s.\nNotice how both items intersected perfectly at an elevation of ${Math.max(0, monkey_m.y).toFixed(2)}m!`);
+          alert(`DIRECT HIT!\nFlight time: ${t.toFixed(2)}s.\nIntersected at an elevation of ${Math.max(0, monkey_m.y).toFixed(2)}m!`);
           return;
         }
 
@@ -268,7 +362,7 @@
           isSimulating = false;
           document.getElementById('val-status').innerText = "Grounded";
           document.getElementById('val-status').style.color = '#718093';
-          alert(`MISSED!\nThe bullet hit the ground before crossing the distance. Try increasing the Firing Speed!`);
+          alert(`MISSED!\nThe bullet hit the ground before crossing the distance. Try dragging them closer or increasing the firing speed.`);
           return;
         }
 
@@ -281,8 +375,11 @@
         bulletHistory = [];
         monkeyHistory = [];
         
-        monkey_m = { x: monkeyStartX, y: monkeyStartHeight };
-        bullet_m = { x: 0.5, y: 0.5 };
+        // Reset dynamic elements to start pos
+        monkey_m = { x: monkey_start_m.x, y: monkey_start_m.y };
+        
+        // Snap bullet precisely to hunter coordinates
+        bullet_m = { x: h_m.x, y: h_m.y };
         
         document.getElementById('fire-btn').innerText = "FIRE";
         document.getElementById('fire-btn').style.backgroundColor = '#4cd137';
@@ -295,7 +392,7 @@
 
         document.getElementById('val-t').innerText = "0.00s";
         document.getElementById('val-my').innerText = monkey_m.y.toFixed(2) + "m";
-        document.getElementById('val-by').innerText = "0.50m";
+        document.getElementById('val-by').innerText = bullet_m.y.toFixed(2) + "m";
 
         drawLaboratoryEnvironment();
       }

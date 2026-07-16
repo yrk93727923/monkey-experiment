@@ -233,6 +233,37 @@
         
         monkey.x = 1400; 
         monkey.y = 900 - parseInt(document.getElementById('sld-height').value);
-        bullet.x = 100; bullet.y = 800;
+        bullet.x = 100; 
+        bullet.y = 800;
         
         document.getElementById('fire-btn').innerText = "FIRE";
+        document.getElementById('fire-btn').style.backgroundColor = '#4cd137';
+        document.getElementById('val-status').innerText = "Ready";
+        document.getElementById('val-status').style.color = '#4cd137';
+        
+        document.getElementById('sld-speed').disabled = false;
+        document.getElementById('sld-height').disabled = false;
+
+        document.getElementById('val-t').innerText = "0.00s";
+        document.getElementById('val-my').innerText = (900 - monkey.y).toFixed(1) + "m";
+        document.getElementById('val-by').innerText = "0.0m";
+
+        // Redraw initial frames on reset and load
+        drawLaboratoryEnvironment();
+      }
+
+      function toggleSlowMo() {
+        const btn = document.getElementById('slow-btn');
+        if (timeSpeedScale === 1.0) {
+          timeSpeedScale = 0.1;
+          btn.innerText = "SLOW-MO: ON";
+          btn.classList.add('active');
+        } else {
+          timeSpeedScale = 1.0;
+          btn.innerText = "SLOW-MO: OFF";
+          btn.classList.remove('active');
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Monkey and Hunter - Interactive Dragging 4x4</title>
+    <title>Monkey and Hunter - 4x4 Grid with Muzzle Physics</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <script>
@@ -78,21 +78,25 @@
       // Real-world physics constants (in meters and seconds)
       const g = 9.8; 
 
-      // Boundary Configuration (Visual padding for 0m to 4m grid inside the 900x900 viewport)
-      const gridOffset = 80; // Margin around the 4m x 4m layout boundaries
-      const gridScale = 740;  // Pixel width/height of active physics grid 
+      // Boundary Offsets (Provides exact spacing for coordinate grid drawing)
+      const gridOffsetLeft = 100;    // Generous gap on left side for Y labels
+      const gridOffsetBottom = 100;  // Generous gap at bottom for X labels
+      const gridOffsetRight = 60;
+      const gridOffsetTop = 60;
+      
+      const barrelLength = 0.3;      // Gun barrel length in meters
 
-      // Converter: Meters to Pixel coordinates
+      // Coordinates mapping: meters to screen pixels
       function toPixels(x_m, y_m) {
-        let px = gridOffset + (x_m / 4.0) * gridScale;
-        let py = (canvas.height - gridOffset) - (y_m / 4.0) * gridScale;
+        let px = gridOffsetLeft + (x_m / 4.0) * (900 - gridOffsetLeft - gridOffsetRight);
+        let py = (canvas.height - gridOffsetBottom) - (y_m / 4.0) * (900 - gridOffsetTop - gridOffsetBottom);
         return { x: px, y: py };
       }
 
-      // Converter: Pixel coordinates to Meters
+      // Coordinates mapping: screen pixels to meters
       function toMeters(px, py) {
-        let x_m = ((px - gridOffset) / gridScale) * 4.0;
-        let y_m = (((canvas.height - gridOffset) - py) / gridScale) * 4.0;
+        let x_m = ((px - gridOffsetLeft) / (900 - gridOffsetLeft - gridOffsetRight)) * 4.0;
+        let y_m = (((canvas.height - gridOffsetBottom) - py) / (900 - gridOffsetTop - gridOffsetBottom)) * 4.0;
         return { x: x_m, y: y_m };
       }
 
@@ -100,7 +104,7 @@
       let launchVelocity = 15; 
       let timeSpeedScale = 1.0; 
 
-      // Positions in real world METERS (Default start points set to 3.5m for perfect visibility)
+      // Positions in real world METERS
       let h_m = { x: 0.5, y: 0.5 };
       let monkey_start_m = { x: 3.5, y: 3.5 };
       
@@ -124,10 +128,22 @@
         updateSliders();
       };
 
-      // Interactive Pointer Events for Touch & Mouse Dragging
+      // Math calculating precise muzzle position to launch bullet
+      function getMuzzleCoords() {
+        const dx = monkey_start_m.x - h_m.x;
+        const dy = monkey_start_m.y - h_m.y;
+        const angle = Math.atan2(dy, dx);
+        return {
+          x: h_m.x + barrelLength * Math.cos(angle),
+          y: h_m.y + barrelLength * Math.sin(angle),
+          angle: angle
+        };
+      }
+
+      // Handle Mouse/Touch Interaction Dragging
       function setupPointerEvents() {
         canvas.addEventListener('pointerdown', (e) => {
-          if (isSimulating) return; // Disallow manipulation mid-flight
+          if (isSimulating) return; // Prevent drag during firing sequence
           
           const rect = canvas.getBoundingClientRect();
           const scaleX = canvas.width / rect.width;
@@ -138,7 +154,6 @@
           
           const click_coords = toMeters(x_px, y_px);
           
-          // Check proximity triggers (within 0.40 meters)
           const distH = Math.hypot(h_m.x - click_coords.x, h_m.y - click_coords.y);
           const distM = Math.hypot(monkey_start_m.x - click_coords.x, monkey_start_m.y - click_coords.y);
           
@@ -161,19 +176,17 @@
           
           let coords = toMeters(x_px, y_px);
           
-          // Confine to real bounds [0.1m - 3.9m] to prevent clipping outer labels
-          let x_m = Math.max(0.1, Math.min(3.9, coords.x));
-          let y_m = Math.max(0.1, Math.min(3.9, coords.y));
-          
           if (draggedEntity === 'hunter') {
-            h_m.x = Math.max(0.1, Math.min(monkey_start_m.x - 0.5, x_m));
-            h_m.y = y_m;
-            // Lock bullet to muzzle position
-            bullet_m.x = h_m.x;
-            bullet_m.y = h_m.y;
+            h_m.x = Math.max(0.0, Math.min(monkey_start_m.x - 0.5, coords.x));
+            h_m.y = Math.max(0.0, Math.min(4.0, coords.y));
+            
+            // Re-anchor bullet to new muzzle point
+            const muzzle = getMuzzleCoords();
+            bullet_m.x = muzzle.x;
+            bullet_m.y = muzzle.y;
           } else if (draggedEntity === 'monkey') {
-            monkey_start_m.x = Math.max(h_m.x + 0.5, Math.min(3.9, x_m));
-            monkey_start_m.y = y_m;
+            monkey_start_m.x = Math.max(h_m.x + 0.5, Math.min(4.0, coords.x));
+            monkey_start_m.y = Math.max(0.0, Math.min(4.0, coords.y));
             monkey_m.x = monkey_start_m.x;
             monkey_m.y = monkey_start_m.y;
             
@@ -182,6 +195,11 @@
             document.getElementById('sld-height').value = monkey_start_m.y;
             document.getElementById('lbl-dist').innerText = monkey_start_m.x.toFixed(1) + " m";
             document.getElementById('lbl-height').innerText = monkey_start_m.y.toFixed(1) + " m";
+
+            // Re-anchor bullet to new muzzle point
+            const muzzle = getMuzzleCoords();
+            bullet_m.x = muzzle.x;
+            bullet_m.y = muzzle.y;
           }
           
           drawLaboratoryEnvironment();
@@ -204,7 +222,7 @@
         document.getElementById('lbl-height').innerText = monkey_start_m.y.toFixed(1) + " m";
 
         if (h_m.x >= monkey_start_m.x) {
-            h_m.x = monkey_start_m.x - 0.5;
+            h_m.x = Math.max(0.0, monkey_start_m.x - 0.5);
         }
 
         resetSimulationState();
@@ -214,90 +232,126 @@
         if (!ctx) return; 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 1. Precise Bounded Grid Setup (0.0m - 4.0m)
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineWidth = 1;
-        ctx.fillStyle = '#7f8fa6';
-        ctx.font = 'bold 16px sans-serif';
+        // 1. Grid Background (Drawing real meters 0m to 4m with bold axis borders)
+        ctx.font = 'bold 20px sans-serif';
 
-        // Vertical lines
+        // Draw vertical grid lines (X-Axis labels)
         for (let i = 0; i <= 4; i++) {
           let pt1 = toPixels(i, 0);
           let pt2 = toPixels(i, 4);
-          ctx.beginPath(); ctx.moveTo(pt1.x, pt1.y); ctx.lineTo(pt2.x, pt2.y); ctx.stroke();
+          
+          ctx.beginPath(); 
+          ctx.moveTo(pt1.x, pt1.y); 
+          ctx.lineTo(pt2.x, pt2.y);
+          if (i === 0 || i === 4) {
+            ctx.strokeStyle = '#57606f'; // Bold border layout lines
+            ctx.lineWidth = 3;
+          } else {
+            ctx.strokeStyle = '#2f3542'; // Internal grid subdivisions
+            ctx.lineWidth = 1;
+          }
+          ctx.stroke();
+          
+          // Render X coordinates labels underneath grid safely
+          ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'center';
-          ctx.fillText(i + "m", pt1.x, pt1.y + 25);
+          ctx.fillText(i + "m", pt1.x, pt1.y + 35);
         }
         
-        // Horizontal lines
+        // Draw horizontal grid lines (Y-Axis labels)
         for (let j = 0; j <= 4; j++) {
           let pt1 = toPixels(0, j);
           let pt2 = toPixels(4, j);
-          ctx.beginPath(); ctx.moveTo(pt1.x, pt1.y); ctx.lineTo(pt2.x, pt2.y); ctx.stroke();
+          
+          ctx.beginPath(); 
+          ctx.moveTo(pt1.x, pt1.y); 
+          ctx.lineTo(pt2.x, pt2.y);
+          if (j === 0 || j === 4) {
+            ctx.strokeStyle = '#57606f'; 
+            ctx.lineWidth = 3;
+          } else {
+            ctx.strokeStyle = '#2f3542';
+            ctx.lineWidth = 1;
+          }
+          ctx.stroke();
+          
+          // Render Y coordinates labels to the left of grid safely
+          ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'right';
-          ctx.fillText(j + "m", pt1.x - 15, pt1.y + 5);
+          ctx.fillText(j + "m", pt1.x - 20, pt1.y + 7);
         }
 
-        // Convert Meters to absolute pixels using mapping scale
+        // Convert coordinates from meters to screen viewport pixels
         let h_pt = toPixels(h_m.x, h_m.y);
         let m_pt = toPixels(monkey_m.x, monkey_m.y);
         let b_pt = toPixels(bullet_m.x, bullet_m.y);
 
-        // 2. Trajectory Trails Rendering
+        // 2. Flight Path Trajectory Trails
         ctx.fillStyle = 'rgba(52, 152, 219, 0.4)'; 
         bulletHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill(); });
 
         ctx.fillStyle = 'rgba(231, 76, 60, 0.4)';  
         monkeyHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill(); });
 
-        // 3. Line of Aim
+        // 3. Precision Aiming Path Line (Drawn from Muzzle tip to monkey center)
+        const muzzle = getMuzzleCoords();
+        const muz_pt = toPixels(muzzle.x, muzzle.y);
         if (!isSimulating) {
           ctx.strokeStyle = '#00f3ff';
           ctx.lineWidth = 2;
           ctx.setLineDash([6, 6]);
-          ctx.beginPath(); ctx.moveTo(h_pt.x, h_pt.y); ctx.lineTo(m_pt.x, m_pt.y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(muz_pt.x, muz_pt.y); ctx.lineTo(m_pt.x, m_pt.y); ctx.stroke();
           ctx.setLineDash([]);
         }
 
-        // 4. Launcher Device Assembly
-        // Draw rotating barrel pointing to target
-        let aimAngle = Math.atan2(m_pt.y - h_pt.y, m_pt.x - h_pt.x);
+        // 4. Weapon Assembly Components
+        // Rotate & draw mechanical launcher barrel
         ctx.save();
         ctx.translate(h_pt.x, h_pt.y);
-        ctx.rotate(aimAngle);
+        ctx.rotate(muzzle.angle);
         ctx.fillStyle = '#485460';
-        ctx.fillRect(0, -10, 35, 20); // Gun barrel rectangle
+        const barrelLenPx = barrelLength * (900 - gridOffsetLeft - gridOffsetRight) / 4.0;
+        ctx.fillRect(0, -12, barrelLenPx, 24); // Solid gun barrel
         ctx.restore();
 
-        // Gun base mount
+        // Mechanical circular hinge base
         ctx.fillStyle = '#1e272e';
         ctx.strokeStyle = '#718093';
         ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(h_pt.x, h_pt.y, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(h_pt.x, h_pt.y, 20, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-        // 5. Monkey Target Target (Red circle with white crosshair center)
+        // 5. Falling Target Monkey (Symmetrical target crosshair)
         ctx.fillStyle = '#e74c3c';
-        ctx.beginPath(); ctx.arc(m_pt.x, m_pt.y, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(m_pt.x, m_pt.y, 18, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.arc(m_pt.x, m_pt.y, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(m_pt.x, m_pt.y, 6, 0, Math.PI * 2); ctx.fill();
 
-        // 6. Projectile Bullet (Always painted cleanly on top layer)
+        // 6. Flying Bullet Projectile (Bright high-visibility blue)
         ctx.fillStyle = '#00a8ff';
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(b_pt.x, b_pt.y, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(b_pt.x, b_pt.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-        // 7. Dynamic Coordinates Label Displays
+        // 7. Dynamic Coordinates Label Placements (Reposition automatically so they don't clip)
         ctx.font = 'bold 16px sans-serif';
         
         ctx.fillStyle = '#00a8ff';
         ctx.textAlign = 'center';
-        ctx.fillText(`Bullet: (${bullet_m.x.toFixed(2)}m, ${bullet_m.y.toFixed(2)}m)`, b_pt.x, b_pt.y + 35);
+        let bLabelY = b_pt.y + 35;
+        if (bullet_m.y < 0.5) bLabelY = b_pt.y - 25; // Don't let label drop out of bounds
+        ctx.fillText(`Bullet: (${bullet_m.x.toFixed(2)}m, ${bullet_m.y.toFixed(2)}m)`, b_pt.x, bLabelY);
         
         ctx.fillStyle = '#e74c3c';
-        ctx.fillText(`Monkey: (${monkey_m.x.toFixed(2)}m, ${monkey_m.y.toFixed(2)}m)`, m_pt.x, m_pt.y - 25);
+        ctx.textAlign = 'center';
+        let mLabelY = m_pt.y - 25;
+        if (monkey_m.y > 3.5) mLabelY = m_pt.y + 35; // Don't let label push off top ceiling
+        ctx.fillText(`Monkey: (${monkey_m.x.toFixed(2)}m, ${monkey_m.y.toFixed(2)}m)`, m_pt.x, mLabelY);
 
-        // Keep Dashboard UI labels synchronized
+        ctx.fillStyle = '#718093';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Gun: (${h_m.x.toFixed(2)}m, ${h_m.y.toFixed(2)}m)`, h_pt.x, h_pt.y - 28);
+
+        // Keep HTML dashboard display numbers synchronized
         document.getElementById('val-my').innerText = monkey_m.y.toFixed(2) + "m";
         document.getElementById('val-by').innerText = bullet_m.y.toFixed(2) + "m";
       }
@@ -338,7 +392,8 @@
         runtimeElapsed += deltaTime * timeSpeedScale;
         let t = runtimeElapsed;
 
-        // Kinematic vector math using the custom hunter location coordinates
+        // Determine starting coordinates mathematically from barrel muzzle
+        const muzzle = getMuzzleCoords();
         const dx_m = monkey_start_m.x - h_m.x;
         const dy_m = monkey_start_m.y - h_m.y;
         const targetHypotenuse = Math.sqrt(dx_m*dx_m + dy_m*dy_m);
@@ -346,27 +401,27 @@
         const vx_m = (dx_m / targetHypotenuse) * launchVelocity;
         const vy_m = (dy_m / targetHypotenuse) * launchVelocity;
 
-        // Standard Gravity Trajectory calculations
+        // Kinematic trajectory algorithms
+        let currentBulletX = muzzle.x + (vx_m * t);
+        let currentBulletY = muzzle.y + (vy_m * t) - (0.5 * g * t * t);
         let currentMonkeyY = monkey_start_m.y - (0.5 * g * t * t);
-        let currentBulletX = h_m.x + (vx_m * t);
-        let currentBulletY = h_m.y + (vy_m * t) - (0.5 * g * t * t);
 
         monkey_m.y = currentMonkeyY;
         bullet_m.x = currentBulletX;
         bullet_m.y = currentBulletY;
 
-        // Save trace trail points to array
+        // Store flight tracking traces
         let b_trace = toPixels(bullet_m.x, bullet_m.y);
         let m_trace = toPixels(monkey_m.x, monkey_m.y);
         bulletHistory.push({ x: b_trace.x, y: b_trace.y });
         monkeyHistory.push({ x: m_trace.x, y: m_trace.y });
 
-        // Update Dashboard clock
+        // Update Dashboard timer clock
         document.getElementById('val-t').innerText = t.toFixed(2) + "s";
 
         drawLaboratoryEnvironment();
 
-        // 1. Collision Check (crossed the monkey's vertical plane)
+        // 1. Collision Intersection confirmation
         if ((vx_m > 0 && bullet_m.x >= monkey_m.x) || (vx_m < 0 && bullet_m.x <= monkey_m.x)) {
           isSimulating = false;
           bullet_m.x = monkey_m.x;
@@ -380,12 +435,12 @@
           return;
         }
 
-        // 2. Out-of-bounds Check (hit the floor/ceiling limits before contact)
+        // 2. Ground limit boundaries check
         if (monkey_m.y <= 0 || bullet_m.y <= 0) {
           isSimulating = false;
           document.getElementById('val-status').innerText = "Grounded";
           document.getElementById('val-status').style.color = '#718093';
-          alert(`MISSED!\nThe bullet hit the ground before reaching the distance. Drag them closer or increase the Firing Speed!`);
+          alert(`MISSED!\nThe bullet hit the ground before reaching the target. Drag them closer or increase the Firing Speed!`);
           return;
         }
 
@@ -399,7 +454,10 @@
         monkeyHistory = [];
         
         monkey_m = { x: monkey_start_m.x, y: monkey_start_m.y };
-        bullet_m = { x: h_m.x, y: h_m.y }; // Snap bullet back inside muzzle
+        
+        // Spawn bullet precisely resting at muzzle tip
+        const muzzle = getMuzzleCoords();
+        bullet_m = { x: muzzle.x, y: muzzle.y };
         
         document.getElementById('fire-btn').innerText = "FIRE";
         document.getElementById('fire-btn').style.backgroundColor = '#4cd137';

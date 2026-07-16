@@ -2,146 +2,223 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>AR Monkey and Hunter Simulator</title>
+    <title>Monkey and Hunter Physics Lab</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Using ultra-stable base A-Frame engine (No glitchy camera plugins required) -->
-    <script src="https://aframe.io"></script>
     <style>
-      body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #111; }
-      /* Clean, non-intrusive game user interface */
-      #ui-panel {
-        position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.85); color: #fff; padding: 15px 30px;
-        border-radius: 12px; z-index: 999; text-align: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5); border: 1px solid #333;
-      }
-      button {
-        padding: 10px 25px; font-size: 18px; font-weight: bold; background: #27ae60;
-        color: white; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px;
-      }
-      button:active { background: #219653; }
+      body { margin: 0; padding: 0; background-color: #1e272e; font-family: system-ui, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; justify-content: center; }
+      #ui-container { width: 90%; max-width: 800px; display: flex; justify-content: space-between; background: #2f3640; padding: 15px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 10px; }
+      .data-box { text-align: center; font-size: 14px; }
+      .data-val { font-size: 20px; font-weight: bold; color: #00a8ff; margin-top: 5px; }
+      #canvas-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 10px; border: 2px solid #485460; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden; position: relative; }
+      canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+      #controls { margin-top: 15px; display: flex; gap: 10px; }
+      button { padding: 12px 35px; font-size: 18px; font-weight: bold; color: white; border: none; border-radius: 25px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+      #fire-btn { background-color: #4cd137; }
+      #fire-btn:active { transform: scale(0.95); background-color: #44bd32; }
+      #slow-btn { background-color: #718093; }
+      #slow-btn.active { background-color: #e1b12c; }
     </style>
   </head>
-  
   <body>
 
-    <!-- On-screen gameplay panel -->
-    <div id="ui-panel">
-      <h3 style="margin: 0 0 5px 0;">MONKEY & HUNTER LAB</h3>
-      <p style="margin: 0 0 10px 0; font-size: 14px; color: #aaa;">Tap the button to test gravitational independence</p>
-      <button id="action-btn" onclick="toggleSimulation()">FIRE PROJECTILE</button>
+    <!-- Telemetry Readout Dashboard -->
+    <div id="ui-container">
+      <div class="data-box">Time Elapsed<div id="val-t" class="data-val">0.00s</div></div>
+      <div class="data-box">Monkey Altitude (Y)<div id="val-my" class="data-val">400.0m</div></div>
+      <div class="data-box">Bullet Altitude (Y)<div id="val-by" class="data-val">0.0m</div></div>
+      <div class="data-box">Status<div id="val-status" class="data-val" style="color:#4cd137;">Ready</div></div>
     </div>
 
-    <!-- Virtual 3D Arena Space -->
-    <a-scene embedded numeric-physics>
-      <!-- Grid floor pattern acting as physical measurement rulers -->
-      <a-grid src="https://aframe.io" position="0 -1 0" rotation="-90 0 0"></a-grid>
-      
-      <!-- Virtual Lab Environment Skybox -->
-      <a-sky color="#1a1a24"></a-sky>
+    <!-- Graphics Drawing Board -->
+    <div id="canvas-wrapper">
+      <canvas id="paintCanvas" width="1600" height="900"></canvas>
+    </div>
 
-      <!-- Physics Objects Structure -->
-      <!-- Green Launcher Block (Hunter) -->
-      <a-box id="hunter" position="-2 0 -4" color="#27ae60" scale="0.3 0.3 0.3"></a-box>
-      
-      <!-- Red Target Sphere (Monkey) -->
-      <a-sphere id="monkey" position="2 2 -4" color="#e74c3c" radius="0.2"></a-sphere>
-      
-      <!-- Blue Bullet Sphere (Projectile) -->
-      <a-sphere id="bullet" position="-2 0 -4" color="#3498db" radius="0.08" visible="false"></a-sphere>
-      
-      <!-- Cyan Aiming laser vector pointing directly at target matrix -->
-      
-      
-      <!-- Camera system locked slightly offset so player can see the full vector layout -->
-      
-        
-      
-    </a-scene>
+    <!-- Controls Menu Layout -->
+    <div id="controls">
+      <button id="fire-btn" onclick="triggerSystem()">FIRE</button>
+      <button id="slow-btn" onclick="toggleSlowMo()">SLOW-MO: OFF</button>
+    </div>
 
     <script>
-      const g = 9.8;             // Acceleration gravity tracking constant
-      const launchSpeed = 7.5;   // Firepower speed scalar
+      const canvas = document.getElementById('paintCanvas');
+      const ctx = canvas.getContext('2d');
 
-      const actionBtn = document.getElementById('action-btn');
-      const monkey = document.getElementById('monkey');
-      const bullet = document.getElementById('bullet');
-      const aimLine = document.getElementById('aim-line');
+      // Physics Engine Variables
+      const g = 9.8 * 80; // Scale gravity factor to fit pixel workspace cleanly
+      let launchVelocity = 650; 
+      let timeSpeedScale = 1.0; 
 
-      // Anchor Coordinates
-      const hPos = { x: -2, y: 0, z: -4 };
-      const mPos = { x: 2, y: 2, z: -4 };
+      // Anchor Layout Coordinate Framework
+      const hunter = { x: 100, y: 800 };   // Bottom Left
+      const monkey = { x: 1400, y: 200 };  // Top Right
+      let bullet = { x: 100, y: 800 };
 
-      let isPlaying = false;
-      let startTime = 0;
+      let isSimulating = false;
+      let runtimeElapsed = 0;
+      let lastFrameTimestamp = 0;
 
-      function toggleSimulation() {
-        if (isPlaying) {
-          resetSimulation();
+      // Draw baseline frames upon loading sequence
+      drawLaboratoryEnvironment();
+
+      function drawLaboratoryEnvironment() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Grid Metrics Background Drawing
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < canvas.width; x += 80) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += 80) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+
+        // 2. Cyan Direct Laser Aim Line
+        if (!isSimulating) {
+          ctx.strokeStyle = '#00f3ff';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([8, 8]);
+          ctx.beginPath();
+          ctx.moveTo(hunter.x, hunter.y);
+          ctx.lineTo(monkey.x, monkey.y);
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset line style
+        }
+
+        // 3. Render Hunter Launcher Device (Green Pivot)
+        ctx.fillStyle = '#4cd137';
+        ctx.beginPath();
+        ctx.arc(hunter.x, hunter.y, 25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 4. Render Target Monkey (Red Node)
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.arc(monkey.x, monkey.y, 30, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner Target design core
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(monkey.x, monkey.y, 10, 0, Math.PI * 2); ctx.fill();
+
+        // 5. Render Projectile Ball (Blue Node)
+        if (isSimulating) {
+          ctx.fillStyle = '#00a8ff';
+          ctx.beginPath();
+          ctx.arc(bullet.x, bullet.y, 15, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function triggerSystem() {
+        if (isSimulating || runtimeElapsed > 0) {
+          resetSystemConfiguration();
+          return;
+        }
+        startSimulationSequence();
+      }
+
+      function startSimulationSequence() {
+        isSimulating = true;
+        runtimeElapsed = 0;
+        lastFrameTimestamp = performance.now();
+        document.getElementById('fire-btn').innerText = "RESET";
+        document.getElementById('fire-btn').style.backgroundColor = '#e74c3c';
+        document.getElementById('val-status').innerText = "In Flight";
+        document.getElementById('val-status').style.color = '#00a8ff';
+        
+        requestAnimationFrame(simulationLoopProcessing);
+      }
+
+      function simulationLoopProcessing(currentTimestamp) {
+        if (!isSimulating) return;
+
+        // Calculate delta timing step parameters
+        let deltaTime = (currentTimestamp - lastFrameTimestamp) / 1000;
+        lastFrameTimestamp = currentTimestamp;
+
+        // Apply slow motion throttle properties safely
+        runtimeElapsed += deltaTime * timeSpeedScale;
+        let t = runtimeElapsed;
+
+        // 3D/2D Kinematic Projection calculations
+        const dx = monkey.x - hunter.x;
+        const dy = monkey.y - hunter.y;
+        const targetHypotenuse = Math.sqrt(dx*dx + dy*dy);
+
+        // Splitting velocities precisely across geometric axes lines
+        const vx = (dx / targetHypotenuse) * launchVelocity;
+        const vy = (dy / targetHypotenuse) * launchVelocity;
+
+        // Kinematics Displacement Formula Updates
+        // Y positions are inverted since pixels render top-down in HTML arrays (0 is roof, 900 is floor)
+        let currentMonkeyY = 200 + (0.5 * g * t * t);
+        let currentBulletX = 100 + (vx * t);
+        let currentBulletY = 800 + (vy * t) + (0.5 * g * t * t);
+
+        // Tracking positional profiles out to display modules
+        monkey.y = currentMonkeyY;
+        bullet.x = currentBulletX;
+        bullet.y = currentBulletY;
+
+        // Dashboard Telemetry feeds tracking
+        document.getElementById('val-t').innerText = t.toFixed(2) + "s";
+        document.getElementById('val-my').innerText = (900 - monkey.y).toFixed(1) + "m";
+        document.getElementById('val-by').innerText = (900 - bullet.y).toFixed(1) + mFixed(bullet.y);
+
+        function mFixed(val) { return isNaN(val) ? "0.0m" : "m"; }
+
+        // Render positions updates inside viewport grid canvas layer
+        drawLaboratoryEnvironment();
+
+        // Target Impact Checking Node
+        if (bullet.x >= monkey.x) {
+          isSimulating = false;
+          document.getElementById('val-status').innerText = "HIT!";
+          document.getElementById('val-status').style.color = '#4cd137';
+          alert(`DIRECT HIT!\nTotal flight run: ${t.toFixed(2)} seconds.\nNotice how both items intersected perfectly in elevation, verifying equations!`);
+          return;
+        }
+
+        // Terminal structural floor tracking crashes protection limit boundaries
+        if (monkey.y > 880 || bullet.y > 880 || bullet.x > 1580) {
+          isSimulating = false;
+          document.getElementById('val-status').innerText = "Grounded";
+          document.getElementById('val-status').style.color = '#718093';
+          return;
+        }
+
+        requestAnimationFrame(simulationLoopProcessing);
+      }
+
+      function resetSystemConfiguration() {
+        isSimulating = false;
+        runtimeElapsed = 0;
+        monkey.x = 1400; monkey.y = 200;
+        bullet.x = 100; bullet.y = 800;
+        
+        document.getElementById('fire-btn').innerText = "FIRE";
+        document.getElementById('fire-btn').style.backgroundColor = '#4cd137';
+        document.getElementById('val-status').innerText = "Ready";
+        document.getElementById('val-status').style.color = '#4cd137';
+        document.getElementById('val-t').innerText = "0.00s";
+        document.getElementById('val-my').innerText = "700.0m";
+        document.getElementById('val-by').innerText = "0.0m";
+        
+        drawLaboratoryEnvironment();
+      }
+
+      function toggleSlowMo() {
+        const btn = document.getElementById('slow-btn');
+        if (timeSpeedScale === 1.0) {
+          timeSpeedScale = 0.20; // slow flight progression properties down by 5 times lower velocity
+          btn.innerText = "SLOW-MO: ON";
+          btn.classList.add('active');
         } else {
-          startSimulation();
+          timeSpeedScale = 1.0;
+          btn.innerText = "SLOW-MO: OFF";
+          btn.classList.remove('active');
         }
-      }
-
-      function startSimulation() {
-        isPlaying = true;
-        startTime = performance.now();
-        bullet.setAttribute('visible', 'true');
-        aimLine.setAttribute('visible', 'false');
-        actionBtn.innerText = "RESET SYSTEM";
-        actionBtn.style.background = "#e74c3c";
-
-        // Calculate 3D aiming vector segments
-        const dx = mPos.x - hPos.x;
-        const dy = mPos.y - hPos.y;
-        const dz = mPos.z - hPos.z;
-        const totalDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-        // Deconstruct directional forces into operational coordinate velocity arrays
-        const vx = (dx / totalDist) * launchSpeed;
-        const vy = (dy / totalDist) * launchSpeed;
-        const vz = (dz / totalDist) * launchSpeed;
-
-        function renderFrame() {
-          if (!isPlaying) return;
-          const t = (performance.now() - startTime) / 1000;
-
-          // Kinematics displacement execution loop
-          const monkeyY = mPos.y - (0.5 * g * t * t);
-          const bulletX = hPos.x + (vx * t);
-          const bulletY = hPos.y + (vy * t) - (0.5 * g * t * t);
-          const bulletZ = hPos.z + (vz * t);
-
-          monkey.setAttribute('position', `${mPos.x} ${monkeyY} ${mPos.z}`);
-          bullet.setAttribute('position', `${bulletX} ${bulletY} ${bulletZ}`);
-
-          // Impact evaluation grid boundary check
-          if (bulletX >= mPos.x) {
-            isPlaying = false;
-            alert(`DIRECT HIT!\nCollision Altitude: ${bulletY.toFixed(2)} meters.\nBoth items dropped simultaneously at exactly the same vertical speed (-0.5gt²), making a crash 100% inevitable!`);
-            return;
-          }
-
-          // Safe ground boundary clipping limits
-          if (monkeyY < -1 || bulletY < -1) {
-            isPlaying = false;
-            alert("Simulation Ended: Objects dropped past the floor array grid layout.");
-            return;
-          }
-
-          requestAnimationFrame(renderFrame);
-        }
-        requestAnimationFrame(renderFrame);
-      }
-
-      function resetSimulation() {
-        isPlaying = false;
-        monkey.setAttribute('position', `${mPos.x} ${mPos.y} ${mPos.z}`);
-        bullet.setAttribute('position', `${hPos.x} ${hPos.y} ${hPos.z}`);
-        bullet.setAttribute('visible', 'false');
-        aimLine.setAttribute('visible', 'true');
-        actionBtn.innerText = "FIRE PROJECTILE";
-        actionBtn.style.background = "#27ae60";
       }
     </script>
   </body>

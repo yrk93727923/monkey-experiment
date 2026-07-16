@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     
-    <!-- Stable production frameworks -->
+    <!-- Stable framework versions -->
     <script src="https://aframe.io"></script>
     <script src="https://githack.com"></script>
     
@@ -60,15 +60,21 @@
         bypassBtn.style.display = 'none';
         scene.style.display = 'block';
 
-        // Core Fix: Force-inject an inline video configuration target to bypass iOS blank-screen errors
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', playsInline: true } })
-          .then((stream) => {
-            // Force the underlying canvas to register clicks properly
-            window.addEventListener('click', handleScreenTap);
-          })
-          .catch(err => {
-            alert("Camera Initialization Failed: " + err);
-          });
+        // Core Fix: Locate the background <video> tag created by AR.js and force-unmute/play inline
+        setTimeout(() => {
+          const videoElement = document.querySelector('video');
+          if (videoElement) {
+            videoElement.setAttribute('playsinline', '');
+            videoElement.setAttribute('webkit-playsinline', '');
+            videoElement.setAttribute('muted', '');
+            videoElement.play().catch(err => {
+              console.log("Auto-play bypassed dynamically");
+            });
+          }
+        }, 300); // 300ms delay ensures AR.js has generated the video DOM element
+
+        // Force the underlying canvas to register clicks properly
+        window.addEventListener('click', handleScreenTap);
       }
 
       function handleScreenTap() {

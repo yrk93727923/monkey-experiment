@@ -2,22 +2,19 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Fixed Monkey and Hunter Physics Lab</title>
+    <title>Monkey and Hunter Physics Lab</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
       body { margin: 0; padding: 0; background-color: #1e272e; font-family: system-ui, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; justify-content: center; }
       #ui-container { width: 90%; max-width: 800px; display: flex; justify-content: space-between; background: #2f3640; padding: 12px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 8px; }
       .data-box { text-align: center; font-size: 13px; }
       .data-val { font-size: 18px; font-weight: bold; color: #00a8ff; margin-top: 3px; }
-      
       #canvas-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 10px; border: 2px solid #485460; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden; }
       canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
-      
       #settings-panel { width: 90%; max-width: 800px; background: #2f3640; padding: 12px; border-radius: 10px; margin-top: 10px; box-sizing: border-box; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
       .slider-group { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
       .slider-group label { display: flex; justify-content: space-between; margin-bottom: 5px; color: #dcdde1; }
       input[type=range] { width: 100%; accent-color: #00a8ff; cursor: pointer; }
-      
       #controls { margin-top: 15px; display: flex; gap: 10px; }
       button { padding: 12px 35px; font-size: 18px; font-weight: bold; color: white; border: none; border-radius: 25px; cursor: pointer; transition: 0.1s; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
       #fire-btn { background-color: #4cd137; }
@@ -28,7 +25,7 @@
   </head>
   <body>
 
-    <!-- Telemetry Readout Dashboard -->
+    <!-- Telemetry Dashboard -->
     <div id="ui-container">
       <div class="data-box">Time Elapsed<div id="val-t" class="data-val">0.00s</div></div>
       <div class="data-box">Monkey Height (Y)<div id="val-my" class="data-val">700.0m</div></div>
@@ -36,24 +33,23 @@
       <div class="data-box">Status<div id="val-status" class="data-val" style="color:#4cd137;">Ready</div></div>
     </div>
 
-    <!-- Main Workspace Canvas -->
+    <!-- Main Canvas Frame -->
     <div id="canvas-wrapper">
       <canvas id="paintCanvas" width="1600" height="900"></canvas>
     </div>
 
-    <!-- Configuration Controllers Panel -->
+    <!-- Controls Panel -->
     <div id="settings-panel">
       <div class="slider-group">
         <label>Firing Speed: <span id="lbl-speed" style="color:#00a8ff;">1200 m/s</span></label>
-        <input type="range" id="sld-speed" min="800" max="2500" value="1200" oninput="updateSliders()">
+        <input type="range" id="sld-speed" min="700" max="3000" value="1200" oninput="updateSliders()">
       </div>
       <div class="slider-group">
-        <label>Monkey Tree Position: <span id="lbl-height" style="color:#e74c3c;">700m</span></label>
+        <label>Monkey Position: <span id="lbl-height" style="color:#e74c3c;">700m</span></label>
         <input type="range" id="sld-height" min="300" max="800" value="700" oninput="updateSliders()">
       </div>
     </div>
 
-    <!-- Primary Control Array -->
     <div id="controls">
       <button id="fire-btn" onclick="toggleSimulation()">FIRE</button>
       <button id="slow-btn" onclick="toggleSlowMo()">SLOW-MO: OFF</button>
@@ -63,18 +59,13 @@
       const canvas = document.getElementById('paintCanvas');
       const ctx = canvas.getContext('2d');
 
-      const g = 9.8 * 80; // Gravity matrix scale factor
+      const g = 9.8 * 80; 
       let launchVelocity = 1200; 
       let timeSpeedScale = 1.0; 
 
       const hunter = { x: 100, y: 800 };   
       let monkey = { x: 1400, y: 200 };  
       let bullet = { x: 100, y: 800 };
-
-      // Fixed: Variables to save the fixed initial velocities calculated at launch
-      let vx = 0;
-      let vy = 0;
-      let monkeyStartHeight = 200;
 
       let isSimulating = false;
       let runtimeElapsed = 0;
@@ -83,7 +74,6 @@
       let bulletHistory = [];
       let monkeyHistory = [];
 
-      // Run initial setup sync
       updateSliders();
 
       function updateSliders() {
@@ -102,7 +92,7 @@
       function drawLaboratoryEnvironment() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 1. Grid Metrics Background Drawing
+        // Draw grid
         ctx.strokeStyle = '#2c3e50';
         ctx.lineWidth = 1;
         for (let x = 0; x < canvas.width; x += 80) {
@@ -112,34 +102,30 @@
           ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         }
 
-        // 2. Render Trail Dots
+        // Trails
         ctx.fillStyle = 'rgba(52, 152, 219, 0.4)'; 
         bulletHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fill(); });
-
         ctx.fillStyle = 'rgba(231, 76, 60, 0.4)';  
         monkeyHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fill(); });
 
-        // 3. Cyan Direct Laser Aim Line
+        // Aim line
         if (!isSimulating) {
           ctx.strokeStyle = '#00f3ff';
           ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(hunter.x, hunter.y);
-          ctx.lineTo(monkey.x, monkey.y);
-          ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(hunter.x, hunter.y); ctx.lineTo(monkey.x, monkey.y); ctx.stroke();
         }
 
-        // 4. Render Launcher Device
+        // Draw hunter
         ctx.fillStyle = '#4cd137';
         ctx.beginPath(); ctx.arc(hunter.x, hunter.y, 25, 0, Math.PI * 2); ctx.fill();
 
-        // 5. Render Target Monkey
+        // Draw monkey
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath(); ctx.arc(monkey.x, monkey.y, 30, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#ffffff';
         ctx.beginPath(); ctx.arc(monkey.x, monkey.y, 10, 0, Math.PI * 2); ctx.fill();
 
-        // 6. Render Active Projectile
+        // Draw bullet
         if (isSimulating || runtimeElapsed > 0) {
           ctx.fillStyle = '#00a8ff';
           ctx.beginPath(); ctx.arc(bullet.x, bullet.y, 15, 0, Math.PI * 2); ctx.fill();
@@ -147,10 +133,7 @@
       }
 
       function toggleSimulation() {
-        if (isSimulating || runtimeElapsed > 0) {
-          resetSimulationState();
-          return;
-        }
+        if (isSimulating || runtimeElapsed > 0) { resetSimulationState(); return; }
         startSimulationSequence();
       }
 
@@ -165,18 +148,8 @@
         document.getElementById('fire-btn').style.backgroundColor = '#e74c3c';
         document.getElementById('val-status').innerText = "In Flight";
         document.getElementById('val-status').style.color = '#00a8ff';
-        
         document.getElementById('sld-speed').disabled = true;
         document.getElementById('sld-height').disabled = true;
-
-        // Fixed: Capture static launcher direction parameters EXACTLY at the moment of launch
-        monkeyStartHeight = 900 - parseInt(document.getElementById('sld-height').value);
-        const dx = 1400 - hunter.x;
-        const dy = monkeyStartHeight - hunter.y;
-        const targetHypotenuse = Math.sqrt(dx*dx + dy*dy);
-
-        vx = (dx / targetHypotenuse) * launchVelocity;
-        vy = (dy / targetHypotenuse) * launchVelocity;
 
         requestAnimationFrame(simulationLoopProcessing);
       }
@@ -190,7 +163,14 @@
         runtimeElapsed += deltaTime * timeSpeedScale;
         let t = runtimeElapsed;
 
-        // Fixed: Kinematics displacement formulas run off static launch vector snapshots
+        const monkeyStartHeight = 900 - parseInt(document.getElementById('sld-height').value);
+        const dx = 1400 - hunter.x;
+        const dy = monkeyStartHeight - hunter.y;
+        const targetHypotenuse = Math.sqrt(dx*dx + dy*dy);
+
+        const vx = (dx / targetHypotenuse) * launchVelocity;
+        const vy = (dy / targetHypotenuse) * launchVelocity;
+
         let currentMonkeyY = monkeyStartHeight + (0.5 * g * t * t);
         let currentBulletX = 100 + (vx * t);
         let currentBulletY = 800 + (vy * t) + (0.5 * g * t * t);
@@ -208,23 +188,40 @@
 
         drawLaboratoryEnvironment();
 
-        // Terminal Intersection Target Collision Checks
         if (bullet.x >= 1400) {
           isSimulating = false;
-          bullet.x = 1400;
-          bullet.y = monkey.y; 
+          bullet.x = 1400; bullet.y = monkey.y; 
           drawLaboratoryEnvironment();
-          
           document.getElementById('val-status').innerText = "HIT!";
           document.getElementById('val-status').style.color = '#4cd137';
-          document.getElementById('val-by').innerText = (900 - monkey.y).toFixed(1) + "m";
-          
-          alert(`DIRECT HIT!\nFlight time: ${t.toFixed(2)}s.\nNotice how both items intersected perfectly at an elevation of ${(900 - monkey.y).toFixed(1)}m!`);
+          alert(`DIRECT HIT!\nNotice how they intersected perfectly, verifying the physics formulas!`);
           return;
         }
 
-        // Crash floor boundary boundary conditions
         if (monkey.y > 880 || bullet.y > 880) {
           isSimulating = false;
           document.getElementById('val-status').innerText = "Grounded";
           document.getElementById('val-status').style.color = '#718093';
+          alert(`MISSED!\nThe bullet hit the ground before reaching the target. Crank up the Firing Speed slider!`);
+          return;
+        }
+
+        requestAnimationFrame(simulationLoopProcessing);
+      }
+
+      function resetSimulationState() {
+        isSimulating = false;
+        runtimeElapsed = 0;
+        bulletHistory = [];
+        monkeyHistory = [];
+        monkey.x = 1400; 
+        monkey.y = 900 - parseInt(document.getElementById('sld-height').value);
+        bullet.x = 100; bullet.y = 800;
+        
+        document.getElementById('fire-btn').innerText = "FIRE";
+        document.getElementById('fire-btn').style.backgroundColor = '#4cd137';
+        document.getElementById('val-status').innerText = "Ready";
+        document.getElementById('val-status').style.color = '#4cd137';
+        document.getElementById('val-t').innerText = "0.00s";
+        document.getElementById('val-my').innerText = (900 - monkey.y).toFixed(1) + "m";
+        document.getElementById('val-by').innerText = "0.0m";

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AR Monkey and Hunter Experiment</title>
+    <!-- Importing free open-source A-Frame (3D rendering) and AR.js (iPad camera tracking) -->
+    <script src="https://aframe.io"></script>
+    <script src="https://githack.com"></script>
+  </head>
+  <body style="margin: 0; overflow: hidden;">
+
+    <!-- Initialize AR scene, tap into iPad camera, and disable debug overlays -->
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+      
+      <!-- 1. The Hunter Launcher (Green Box): Placed 3 meters in front, 1 meter to the left -->
+      <a-box id="hunter" position="-1 0 -3" color="#27ae60" scale="0.2 0.2 0.2"></a-box>
+      
+      <!-- 2. The Monkey Target (Red Sphere): Placed 3 meters in front, 1 meter to the right, elevated at 1.5 meters -->
+      <a-sphere id="monkey" position="1 1.5 -3" color="#e74c3c" radius="0.15"></a-sphere>
+      
+      <!-- 3. The Bullet (Blue Sphere): Hidden inside the hunter box initially -->
+      <a-sphere id="bullet" position="-1 0 -3" color="#3498db" radius="0.05" visible="false"></a-sphere>
+      
+      <!-- 4. Neon Aiming Line: Directly connects the hunter (-1, 0, -3) to the monkey's starting position (1, 1.5, -3) -->
+      
+
+      <!-- The iPad Active Camera View (Player Perspective) -->
+      
+    </a-scene>
+
+    <!-- Custom Physics & Interaction Logic -->
+    <script>
+      // Kinematic Constants
+      const g = 9.8;               // Gravity acceleration (m/s^2)
+      const launchSpeed = 5.0;     // Initial velocity of the bullet (m/s) - Change this value to test variations!
+
+      // Fetch 3D Elements from DOM
+      const monkey = document.getElementById('monkey');
+      const bullet = document.getElementById('bullet');
+      const aimLine = document.getElementById('aim-line');
+
+      // Coordinate Profiles (X, Y, Z)
+      const hPos = { x: -1, y: 0, z: -3 };
+      const mPos = { x: 1, y: 1.5, z: -3 };
+
+      let isPlaying = false;
+      let startTime = 0;
+
+      // Listen for a screen tap anywhere on the iPad
+      window.addEventListener('click', () => {
+        if (isPlaying) {
+          // If the simulation is running, tap again to reset
+          resetExperiment();
+          return;
+        }
+        startExperiment();
+      });
+
+      function startExperiment() {
+        isPlaying = true;
+        startTime = performance.now();
+        bullet.setAttribute('visible', 'true');
+        aimLine.setAttribute('visible', 'false'); // Hide aiming line upon launch
+
+        // Calculate 3D Directional Vector from Hunter to Monkey
+        const dx = mPos.x - hPos.x;
+        const dy = mPos.y - hPos.y;
+        const dz = mPos.z - hPos.z;
+        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+        // Break down initial velocity into X, Y, and Z vector components (V0x, V0y, V0z)
+        const vx = (dx / distance) * launchSpeed;
+        const vy = (dy / distance) * launchSpeed;
+        const vz = (dz / distance) * launchSpeed;
+
+        // Frame-by-frame physics loops for smooth tracking animations
+        function updatePhysics() {
+          if (!isPlaying) return;
+
+          // Calculate time passed since firing in seconds (t)
+          const t = (performance.now() - startTime) / 1000;
+
+          // [Formula 1] Monkey Free Fall: Y = Y0 - 0.5 * g * t^2
+          const monkeyY = mPos.y - (0.5 * g * t * t);
+          
+          // [Formula 2] Bullet Projectile Motion:
+          // X & Z: Constant linear horizontal speed (X = X0 + Vx * t)
+          // Y: Constant vertical deceleration due to gravity (Y = Y0 + Vy * t - 0.5 * g * t^2)
+          const bulletX = hPos.x + (vx * t);
+          const bulletY = hPos.y + (vy * t) - (0.5 * g * t * t);
+          const bulletZ = hPos.z + (vz * t);
+
+          // Update the positions of elements in 3D AR space
+          monkey.setAttribute('position', `${mPos.x} ${monkeyY} ${mPos.z}`);
+          bullet.setAttribute('position', `${bulletX} ${bulletY} ${bulletZ}`);
+
+          // Impact Collision Detection: When the bullet reaches the monkey's horizontal grid line
+          if (bulletX >= mPos.x) {
+            isPlaying = false;
+            // Freeze positions immediately and trigger alert explaining the proof
+            alert(`DIRECT HIT!\nBoth objects intersected perfectly in mid-air.\nNotice how their Y-coordinates (height) are identical at impact, proving gravity drops them at the exact same rate!`);
+            return;
+          }
+
+          // Boundary fallback: Stop if objects fall below a virtual floor limit
+          if (monkeyY < -2 || bulletY < -2) {
+            isPlaying = false;
+            return;
+          }
+
+          requestAnimationFrame(updatePhysics);
+        }
+
+        requestAnimationFrame(updatePhysics);
+      }
+
+      function resetExperiment() {
+        isPlaying = false;
+        // Snap objects back to initial vectors
+        monkey.setAttribute('position', `${mPos.x} ${mPos.y} ${mPos.z}`);
+        bullet.setAttribute('position', `${hPos.x} ${hPos.y} ${hPos.z}`);
+        bullet.setAttribute('visible', 'false');
+        aimLine.setAttribute('visible', 'true');
+      }
+    </script>
+  </body>
+</html>

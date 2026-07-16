@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Monkey and Hunter - Adjustable X & Y</title>
+    <title>Monkey and Hunter - 4x4 Meter Scale</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <script>
@@ -19,7 +19,9 @@
       .data-val { font-size: 18px; font-weight: bold; color: #00a8ff; margin-top: 3px; }
       
       #canvas-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 10px; border: 2px solid #485460; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden; }
-      canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+      
+      /* Changed aspect-ratio to 1/1 to make the grid perfectly square */
+      canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; }
       
       #settings-panel { width: 90%; max-width: 800px; background: #2f3640; padding: 12px; border-radius: 10px; margin-top: 10px; box-sizing: border-box; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
       .slider-group { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
@@ -46,7 +48,8 @@
 
     <!-- Main Workspace Canvas -->
     <div id="canvas-wrapper">
-      <canvas id="paintCanvas" width="1600" height="900"></canvas>
+      <!-- Changed internal resolution to be a square 900x900 (gives 4.5m space so the 4m lines don't get cut off at the edge) -->
+      <canvas id="paintCanvas" width="900" height="900"></canvas>
     </div>
 
     <!-- Configuration Controllers Panel -->
@@ -56,7 +59,6 @@
         <input type="range" id="sld-speed" min="8" max="30" value="15" step="1" oninput="updateSliders()">
       </div>
       <div class="slider-group">
-        <!-- Max distance strictly capped at 4.0 meters -->
         <label>Distance (X): <span id="lbl-dist" style="color:#f39c12;">4.0 m</span></label>
         <input type="range" id="sld-dist" min="1.0" max="4.0" value="4.0" step="0.1" oninput="updateSliders()">
       </div>
@@ -83,11 +85,11 @@
       let launchVelocity = 15; 
       let timeSpeedScale = 1.0; 
       let monkeyStartHeight = 4.0;
-      let monkeyStartX = 4.0; // Updated default horizontal start to match max slider
+      let monkeyStartX = 4.0; 
 
       // Positions in real world METERS
       let h_m = { x: 0.5, y: 0.5 };
-      let monkey_m = { x: 4.0, y: 4.0 }; // Updated default position
+      let monkey_m = { x: 4.0, y: 4.0 }; 
       let bullet_m = { x: 0.5, y: 0.5 };
 
       let isSimulating = false;
@@ -128,14 +130,14 @@
         ctx.fillStyle = '#7f8fa6';
         ctx.font = '16px sans-serif';
 
-        // Draw vertical 1-meter lines (X-axis)
-        for (let i = 0; i <= 8; i++) {
+        // Draw vertical 1-meter lines up to 4 meters (X-axis)
+        for (let i = 0; i <= 4; i++) {
           let px = i * pxPerMeter;
           ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); ctx.stroke();
-          if (px > 0 && px < canvas.width) ctx.fillText(i + "m", px + 8, canvas.height - 10);
+          if (px > 0) ctx.fillText(i + "m", px + 8, canvas.height - 10);
         }
         
-        // Draw horizontal 1-meter lines (Y-axis)
+        // Draw horizontal 1-meter lines up to 4 meters (Y-axis)
         for (let j = 0; j <= 4; j++) {
           let py = canvas.height - (j * pxPerMeter);
           ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();

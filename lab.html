@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Monkey and Hunter - 4x4 Grid with Muzzle Physics</title>
+    <title>Monkey and Hunter - 4x4 Responsive Grid</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <script>
@@ -13,16 +13,67 @@
     </script>
 
     <style>
-      body { margin: 0; padding: 0; background-color: #1e272e; font-family: system-ui, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; justify-content: center; }
-      #ui-container { width: 90%; max-width: 800px; display: flex; justify-content: space-between; background: #2f3640; padding: 12px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 8px; box-sizing: border-box; }
+      /* Corrected layout to prevent vertical clipping on smaller viewports */
+      body { 
+        margin: 0; 
+        padding: 10px; 
+        background-color: #1e272e; 
+        font-family: system-ui, sans-serif; 
+        color: white; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        min-height: 100vh; 
+        box-sizing: border-box; 
+        justify-content: flex-start; 
+      }
+      
+      /* Viewport height caps (65vh) guarantee layout fits on standard screens */
+      #ui-container, #canvas-wrapper, #settings-panel { 
+        width: 100%; 
+        max-width: min(92vw, 65vh); 
+        box-sizing: border-box; 
+      }
+      
+      #ui-container { 
+        display: flex; 
+        justify-content: space-between; 
+        background: #2f3640; 
+        padding: 12px; 
+        border-radius: 10px; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+        margin-bottom: 8px; 
+      }
       .data-box { text-align: center; font-size: 13px; }
       .data-val { font-size: 18px; font-weight: bold; color: #00a8ff; margin-top: 3px; }
       
-      #canvas-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 10px; border: 2px solid #485460; box-shadow: 0 10px 25px rgba(0,0,0,0.5); overflow: hidden; position: relative; }
-      canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; touch-action: none; cursor: grab; }
+      #canvas-wrapper { 
+        background: #000; 
+        border-radius: 10px; 
+        border: 2px solid #485460; 
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+        overflow: hidden; 
+        position: relative; 
+      }
+      canvas { 
+        display: block; 
+        width: 100%; 
+        height: auto; 
+        aspect-ratio: 1 / 1; 
+        touch-action: none; 
+        cursor: grab; 
+      }
       canvas:active { cursor: grabbing; }
       
-      #settings-panel { width: 90%; max-width: 800px; background: #2f3640; padding: 12px; border-radius: 10px; margin-top: 10px; box-sizing: border-box; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+      #settings-panel { 
+        background: #2f3640; 
+        padding: 12px; 
+        border-radius: 10px; 
+        margin-top: 10px; 
+        display: grid; 
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 15px; 
+      }
       .slider-group { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
       .slider-group label { display: flex; justify-content: space-between; margin-bottom: 5px; color: #dcdde1; }
       input[type=range] { width: 100%; accent-color: #00a8ff; cursor: pointer; }
@@ -33,6 +84,13 @@
       #fire-btn:active { transform: scale(0.95); }
       #slow-btn { background-color: #718093; }
       #slow-btn.active { background-color: #e1b12c; }
+
+      @media (max-width: 500px) {
+        #settings-panel {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -78,7 +136,7 @@
       // Real-world physics constants (in meters and seconds)
       const g = 9.8; 
 
-      // Boundary Offsets (Provides exact spacing for coordinate grid drawing)
+      // Boundary Offsets (Provides padding for coordinate grid drawing to prevent browser edge cutoffs)
       const gridOffsetLeft = 100;    // Generous gap on left side for Y labels
       const gridOffsetBottom = 100;  // Generous gap at bottom for X labels
       const gridOffsetRight = 60;
@@ -228,12 +286,34 @@
         resetSimulationState();
       }
 
+      // Helper function to paint easy-to-read text badges over grid lines
+      function drawLabelBadge(text, x, y, color) {
+        ctx.save();
+        ctx.font = 'bold 15px system-ui, sans-serif';
+        const txtWidth = ctx.measureText(text).width;
+        
+        // Draw pill background
+        ctx.fillStyle = 'rgba(26, 26, 26, 0.85)';
+        ctx.fillRect(x - txtWidth/2 - 8, y - 13, txtWidth + 16, 24);
+        
+        // Draw pill border
+        ctx.strokeStyle = '#485460';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x - txtWidth/2 - 8, y - 13, txtWidth + 16, 24);
+        
+        // Draw text coordinate data
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.fillText(text, x, y + 4);
+        ctx.restore();
+      }
+
       function drawLaboratoryEnvironment() {
         if (!ctx) return; 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // 1. Grid Background (Drawing real meters 0m to 4m with bold axis borders)
-        ctx.font = 'bold 20px sans-serif';
+        ctx.font = 'bold 20px system-ui, sans-serif';
 
         // Draw vertical grid lines (X-Axis labels)
         for (let i = 0; i <= 4; i++) {
@@ -244,10 +324,10 @@
           ctx.moveTo(pt1.x, pt1.y); 
           ctx.lineTo(pt2.x, pt2.y);
           if (i === 0 || i === 4) {
-            ctx.strokeStyle = '#57606f'; // Bold border layout lines
+            ctx.strokeStyle = '#718093'; // Outer layout borders
             ctx.lineWidth = 3;
           } else {
-            ctx.strokeStyle = '#2f3542'; // Internal grid subdivisions
+            ctx.strokeStyle = '#2f3542'; // Inner grid divisions
             ctx.lineWidth = 1;
           }
           ctx.stroke();
@@ -267,7 +347,7 @@
           ctx.moveTo(pt1.x, pt1.y); 
           ctx.lineTo(pt2.x, pt2.y);
           if (j === 0 || j === 4) {
-            ctx.strokeStyle = '#57606f'; 
+            ctx.strokeStyle = '#718093'; 
             ctx.lineWidth = 3;
           } else {
             ctx.strokeStyle = '#2f3542';
@@ -287,7 +367,7 @@
         let b_pt = toPixels(bullet_m.x, bullet_m.y);
 
         // 2. Flight Path Trajectory Trails
-        ctx.fillStyle = 'rgba(52, 152, 219, 0.4)'; 
+        ctx.fillStyle = 'rgba(0, 168, 255, 0.4)'; 
         bulletHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill(); });
 
         ctx.fillStyle = 'rgba(231, 76, 60, 0.4)';  
@@ -304,8 +384,7 @@
           ctx.setLineDash([]);
         }
 
-        // 4. Weapon Assembly Components
-        // Rotate & draw mechanical launcher barrel
+        // 4. Weapon Assembly Components (Rotates dynamically toward Target)
         ctx.save();
         ctx.translate(h_pt.x, h_pt.y);
         ctx.rotate(muzzle.angle);
@@ -326,30 +405,26 @@
         ctx.fillStyle = '#ffffff';
         ctx.beginPath(); ctx.arc(m_pt.x, m_pt.y, 6, 0, Math.PI * 2); ctx.fill();
 
-        // 6. Flying Bullet Projectile (Bright high-visibility blue)
-        ctx.fillStyle = '#00a8ff';
+        // 6. Flying Bullet Projectile (Bright high-visibility blue with neon shadow)
+        ctx.save();
+        ctx.shadowColor = '#00f3ff';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#00f3ff';
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(b_pt.x, b_pt.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.restore();
 
-        // 7. Dynamic Coordinates Label Placements (Reposition automatically so they don't clip)
-        ctx.font = 'bold 16px sans-serif';
-        
-        ctx.fillStyle = '#00a8ff';
-        ctx.textAlign = 'center';
+        // 7. Render Coordinates Labels inside high-contrast badges
         let bLabelY = b_pt.y + 35;
-        if (bullet_m.y < 0.5) bLabelY = b_pt.y - 25; // Don't let label drop out of bounds
-        ctx.fillText(`Bullet: (${bullet_m.x.toFixed(2)}m, ${bullet_m.y.toFixed(2)}m)`, b_pt.x, bLabelY);
+        if (bullet_m.y < 0.5) bLabelY = b_pt.y - 30; // Shift upward if near ground boundary
+        drawLabelBadge(`Bullet: (${bullet_m.x.toFixed(2)}m, ${bullet_m.y.toFixed(2)}m)`, b_pt.x, bLabelY, '#00a8ff');
         
-        ctx.fillStyle = '#e74c3c';
-        ctx.textAlign = 'center';
         let mLabelY = m_pt.y - 25;
-        if (monkey_m.y > 3.5) mLabelY = m_pt.y + 35; // Don't let label push off top ceiling
-        ctx.fillText(`Monkey: (${monkey_m.x.toFixed(2)}m, ${monkey_m.y.toFixed(2)}m)`, m_pt.x, mLabelY);
+        if (monkey_m.y > 3.5) mLabelY = m_pt.y + 35; // Shift downward if near ceiling boundary
+        drawLabelBadge(`Monkey: (${monkey_m.x.toFixed(2)}m, ${monkey_m.y.toFixed(2)}m)`, m_pt.x, mLabelY, '#e74c3c');
 
-        ctx.fillStyle = '#718093';
-        ctx.textAlign = 'center';
-        ctx.fillText(`Gun: (${h_m.x.toFixed(2)}m, ${h_m.y.toFixed(2)}m)`, h_pt.x, h_pt.y - 28);
+        drawLabelBadge(`Gun: (${h_m.x.toFixed(2)}m, ${h_m.y.toFixed(2)}m)`, h_pt.x, h_pt.y - 32, '#4cd137');
 
         // Keep HTML dashboard display numbers synchronized
         document.getElementById('val-my').innerText = monkey_m.y.toFixed(2) + "m";
@@ -401,7 +476,7 @@
         const vx_m = (dx_m / targetHypotenuse) * launchVelocity;
         const vy_m = (dy_m / targetHypotenuse) * launchVelocity;
 
-        // Kinematic trajectory algorithms
+        // Kinematic trajectory equations
         let currentBulletX = muzzle.x + (vx_m * t);
         let currentBulletY = muzzle.y + (vy_m * t) - (0.5 * g * t * t);
         let currentMonkeyY = monkey_start_m.y - (0.5 * g * t * t);

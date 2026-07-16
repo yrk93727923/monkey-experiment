@@ -2,105 +2,111 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>AR Monkey and Hunter Experiment</title>
-    <!-- Force Apple engines to unlock camera rendering arrays -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    
-    <!-- Stable framework versions -->
+    <title>AR Monkey and Hunter Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Using ultra-stable base A-Frame engine (No glitchy camera plugins required) -->
     <script src="https://aframe.io"></script>
-    <script src="https://githack.com"></script>
-    
     <style>
-      #ios-bypass-btn {
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        padding: 20px 40px; font-size: 24px; font-weight: bold; background: #27ae60;
-        color: white; border: none; border-radius: 10px; z-index: 9999; cursor: pointer;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #111; }
+      /* Clean, non-intrusive game user interface */
+      #ui-panel {
+        position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.85); color: #fff; padding: 15px 30px;
+        border-radius: 12px; z-index: 999; text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5); border: 1px solid #333;
       }
-      body { margin: 0; overflow: hidden; background-color: #000; }
+      button {
+        padding: 10px 25px; font-size: 18px; font-weight: bold; background: #27ae60;
+        color: white; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px;
+      }
+      button:active { background: #219653; }
     </style>
   </head>
   
   <body>
 
-    <!-- Native Interaction Gate required by iOS -->
-    <button id="ios-bypass-btn" onclick="initAREngine()">START AR SESSION</button>
+    <!-- On-screen gameplay panel -->
+    <div id="ui-panel">
+      <h3 style="margin: 0 0 5px 0;">MONKEY & HUNTER LAB</h3>
+      <p style="margin: 0 0 10px 0; font-size: 14px; color: #aaa;">Tap the button to test gravitational independence</p>
+      <button id="action-btn" onclick="toggleSimulation()">FIRE PROJECTILE</button>
+    </div>
 
-    <!-- Embedded configuration telling AR.js to play explicitly inline -->
-    <a-scene id="ar-scene" style="display: none;" embedded arjs="sourceType: webcam; debugUIEnabled: false; videoTexture: true;">
+    <!-- Virtual 3D Arena Space -->
+    <a-scene embedded numeric-physics>
+      <!-- Grid floor pattern acting as physical measurement rulers -->
+      <a-grid src="https://aframe.io" position="0 -1 0" rotation="-90 0 0"></a-grid>
       
-      <!-- Physics Elements -->
-      <a-box id="hunter" position="-1 0 -3" color="#27ae60" scale="0.2 0.2 0.2"></a-box>
-      <a-sphere id="monkey" position="1 1.5 -3" color="#e74c3c" radius="0.15"></a-sphere>
-      <a-sphere id="bullet" position="-1 0 -3" color="#3498db" radius="0.05" visible="false"></a-sphere>
+      <!-- Virtual Lab Environment Skybox -->
+      <a-sky color="#1a1a24"></a-sky>
+
+      <!-- Physics Objects Structure -->
+      <!-- Green Launcher Block (Hunter) -->
+      <a-box id="hunter" position="-2 0 -4" color="#27ae60" scale="0.3 0.3 0.3"></a-box>
+      
+      <!-- Red Target Sphere (Monkey) -->
+      <a-sphere id="monkey" position="2 2 -4" color="#e74c3c" radius="0.2"></a-sphere>
+      
+      <!-- Blue Bullet Sphere (Projectile) -->
+      <a-sphere id="bullet" position="-2 0 -4" color="#3498db" radius="0.08" visible="false"></a-sphere>
+      
+      <!-- Cyan Aiming laser vector pointing directly at target matrix -->
       
       
+      <!-- Camera system locked slightly offset so player can see the full vector layout -->
+      
+        
       
     </a-scene>
 
     <script>
-      const g = 9.8;
-      const launchSpeed = 6.0;
+      const g = 9.8;             // Acceleration gravity tracking constant
+      const launchSpeed = 7.5;   // Firepower speed scalar
 
-      const scene = document.getElementById('ar-scene');
-      const bypassBtn = document.getElementById('ios-bypass-btn');
+      const actionBtn = document.getElementById('action-btn');
       const monkey = document.getElementById('monkey');
       const bullet = document.getElementById('bullet');
       const aimLine = document.getElementById('aim-line');
 
-      const hPos = { x: -1, y: 0, z: -3 };
-      const mPos = { x: 1, y: 1.5, z: -3 };
+      // Anchor Coordinates
+      const hPos = { x: -2, y: 0, z: -4 };
+      const mPos = { x: 2, y: 2, z: -4 };
 
       let isPlaying = false;
       let startTime = 0;
 
-      function initAREngine() {
-        // Hide button, unhide canvas scene container
-        bypassBtn.style.display = 'none';
-        scene.style.display = 'block';
-
-        // Core Fix: Locate the background <video> tag created by AR.js and force-unmute/play inline
-        setTimeout(() => {
-          const videoElement = document.querySelector('video');
-          if (videoElement) {
-            videoElement.setAttribute('playsinline', '');
-            videoElement.setAttribute('webkit-playsinline', '');
-            videoElement.setAttribute('muted', '');
-            videoElement.play().catch(err => {
-              console.log("Auto-play bypassed dynamically");
-            });
-          }
-        }, 300); // 300ms delay ensures AR.js has generated the video DOM element
-
-        // Force the underlying canvas to register clicks properly
-        window.addEventListener('click', handleScreenTap);
+      function toggleSimulation() {
+        if (isPlaying) {
+          resetSimulation();
+        } else {
+          startSimulation();
+        }
       }
 
-      function handleScreenTap() {
-        if (isPlaying) { resetExperiment(); return; }
-        startExperiment();
-      }
-
-      function startExperiment() {
+      function startSimulation() {
         isPlaying = true;
         startTime = performance.now();
         bullet.setAttribute('visible', 'true');
         aimLine.setAttribute('visible', 'false');
+        actionBtn.innerText = "RESET SYSTEM";
+        actionBtn.style.background = "#e74c3c";
 
+        // Calculate 3D aiming vector segments
         const dx = mPos.x - hPos.x;
         const dy = mPos.y - hPos.y;
         const dz = mPos.z - hPos.z;
-        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        const totalDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-        const vx = (dx / distance) * launchSpeed;
-        const vy = (dy / distance) * launchSpeed;
-        const vz = (dz / distance) * launchSpeed;
+        // Deconstruct directional forces into operational coordinate velocity arrays
+        const vx = (dx / totalDist) * launchSpeed;
+        const vy = (dy / totalDist) * launchSpeed;
+        const vz = (dz / totalDist) * launchSpeed;
 
-        function updatePhysics() {
+        function renderFrame() {
           if (!isPlaying) return;
           const t = (performance.now() - startTime) / 1000;
 
+          // Kinematics displacement execution loop
           const monkeyY = mPos.y - (0.5 * g * t * t);
           const bulletX = hPos.x + (vx * t);
           const bulletY = hPos.y + (vy * t) - (0.5 * g * t * t);
@@ -109,24 +115,33 @@
           monkey.setAttribute('position', `${mPos.x} ${monkeyY} ${mPos.z}`);
           bullet.setAttribute('position', `${bulletX} ${bulletY} ${bulletZ}`);
 
+          // Impact evaluation grid boundary check
           if (bulletX >= mPos.x) {
             isPlaying = false;
-            alert(`DIRECT HIT!\nBoth shapes collided in mid-air at elevation Y: ${bulletY.toFixed(2)}m.\nThis confirms horizontal components do not limit gravitational acceleration!`);
+            alert(`DIRECT HIT!\nCollision Altitude: ${bulletY.toFixed(2)} meters.\nBoth items dropped simultaneously at exactly the same vertical speed (-0.5gt²), making a crash 100% inevitable!`);
             return;
           }
 
-          if (monkeyY < -3 || bulletY < -3) { isPlaying = false; return; }
-          requestAnimationFrame(updatePhysics);
+          // Safe ground boundary clipping limits
+          if (monkeyY < -1 || bulletY < -1) {
+            isPlaying = false;
+            alert("Simulation Ended: Objects dropped past the floor array grid layout.");
+            return;
+          }
+
+          requestAnimationFrame(renderFrame);
         }
-        requestAnimationFrame(updatePhysics);
+        requestAnimationFrame(renderFrame);
       }
 
-      function resetExperiment() {
+      function resetSimulation() {
         isPlaying = false;
         monkey.setAttribute('position', `${mPos.x} ${mPos.y} ${mPos.z}`);
         bullet.setAttribute('position', `${hPos.x} ${hPos.y} ${hPos.z}`);
         bullet.setAttribute('visible', 'false');
         aimLine.setAttribute('visible', 'true');
+        actionBtn.innerText = "FIRE PROJECTILE";
+        actionBtn.style.background = "#27ae60";
       }
     </script>
   </body>

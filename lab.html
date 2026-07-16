@@ -69,7 +69,7 @@
         border-radius: 10px; 
         margin-top: 10px; 
         display: grid; 
-        grid-template-columns: repeat(3, 1fr); 
+        grid-template-columns: 1fr; /* Updated to 1 column for the single slider */
         gap: 15px; 
       }
       .slider-group { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
@@ -82,13 +82,6 @@
       #fire-btn:active { transform: scale(0.95); }
       #slow-btn { background-color: #718093; }
       #slow-btn.active { background-color: #e1b12c; }
-
-      @media (max-width: 500px) {
-        #settings-panel {
-          grid-template-columns: 1fr;
-          gap: 10px;
-        }
-      }
     </style>
   </head>
   <body>
@@ -109,14 +102,6 @@
         <label>Firing Speed: <span id="lbl-speed" style="color:#00a8ff;">15 m/s</span></label>
         <input type="range" id="sld-speed" min="8" max="30" value="15" step="1" oninput="updateSliders()">
       </div>
-      <div class="slider-group">
-        <label>Monkey (X): <span id="lbl-dist" style="color:#f39c12;">3.5 m</span></label>
-        <input type="range" id="sld-dist" min="1.0" max="4.0" value="3.5" step="0.1" oninput="updateSliders()">
-      </div>
-      <div class="slider-group">
-        <label>Monkey (Y): <span id="lbl-height" style="color:#e74c3c;">3.5 m</span></label>
-        <input type="range" id="sld-height" min="1.0" max="4.0" value="3.5" step="0.1" oninput="updateSliders()">
-      </div>
     </div>
 
     <div id="controls">
@@ -134,7 +119,6 @@
       const gridOffsetRight = 60;
       const gridOffsetTop = 60;
       
-      // Removed gun barrel length to set the bullet perfectly at the starting drag point
       const barrelLength = 0;      
 
       function toPixels(x_m, y_m) {
@@ -233,11 +217,6 @@
             monkey_start_m.y = Math.max(0.0, Math.min(4.0, coords.y));
             monkey_m.x = monkey_start_m.x;
             monkey_m.y = monkey_start_m.y;
-            
-            document.getElementById('sld-dist').value = monkey_start_m.x;
-            document.getElementById('sld-height').value = monkey_start_m.y;
-            document.getElementById('lbl-dist').innerText = monkey_start_m.x.toFixed(1) + " m";
-            document.getElementById('lbl-height').innerText = monkey_start_m.y.toFixed(1) + " m";
 
             const muzzle = getMuzzleCoords();
             bullet_m.x = muzzle.x;
@@ -256,12 +235,6 @@
 
         launchVelocity = parseFloat(document.getElementById('sld-speed').value);
         document.getElementById('lbl-speed').innerText = launchVelocity + " m/s";
-
-        monkey_start_m.x = parseFloat(document.getElementById('sld-dist').value);
-        document.getElementById('lbl-dist').innerText = monkey_start_m.x.toFixed(1) + " m";
-
-        monkey_start_m.y = parseFloat(document.getElementById('sld-height').value);
-        document.getElementById('lbl-height').innerText = monkey_start_m.y.toFixed(1) + " m";
 
         if (h_m.x >= monkey_start_m.x) {
             h_m.x = Math.max(0.0, monkey_start_m.x - 0.5);
@@ -337,7 +310,6 @@
           ctx.fillText(j + "m", pt1.x - 20, pt1.y + 7);
         }
 
-        let h_pt = toPixels(h_m.x, h_m.y);
         let m_pt = toPixels(monkey_m.x, monkey_m.y);
         let b_pt = toPixels(bullet_m.x, bullet_m.y);
 
@@ -375,7 +347,7 @@
         ctx.beginPath(); ctx.arc(b_pt.x, b_pt.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.restore();
 
-        // 6. Render Coordinates Labels (Gun label removed!)
+        // 6. Render Coordinates Labels
         let bLabelY = b_pt.y + 35;
         if (bullet_m.y < 0.5) bLabelY = b_pt.y - 30; 
         drawLabelBadge(`Bullet: (${bullet_m.x.toFixed(2)}m, ${bullet_m.y.toFixed(2)}m)`, b_pt.x, bLabelY, '#00a8ff');
@@ -409,8 +381,6 @@
         document.getElementById('val-status').style.color = '#00a8ff';
         
         document.getElementById('sld-speed').disabled = true;
-        document.getElementById('sld-dist').disabled = true;
-        document.getElementById('sld-height').disabled = true;
 
         requestAnimationFrame(simulationLoopProcessing);
       }
@@ -490,8 +460,6 @@
         document.getElementById('val-status').style.color = '#4cd137';
         
         document.getElementById('sld-speed').disabled = false;
-        document.getElementById('sld-dist').disabled = false;
-        document.getElementById('sld-height').disabled = false;
 
         document.getElementById('val-t').innerText = "0.00s";
 

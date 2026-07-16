@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <!-- Automatically forces the browser/iPad to hop directly to your lab view -->
-    <meta http-equiv="refresh" content="0; url=lab.html">
+    <!-- Automatically forces the browser to hop directly to your lab view with a cache-buster -->
     <script>
-      window.location.href = "lab.html";
+      // The "?v=" + Date.now() forces the browser to bypass any old cached versions of lab.html!
+      window.location.href = "lab.html?v=" + Date.now();
     </script>
   </head>
   <body style="background-color: #1e272e; color: white; font-family: sans-serif; text-align: center; padding-top: 50px;">
-    <p>Loading Physics Lab... <a href="lab.html" style="color: #00a8ff;">Click here</a> if it does not forward automatically.</p>
+    <p>Loading Physics Lab...</p>
   </body>
 </html>

@@ -13,7 +13,6 @@
     </script>
 
     <style>
-      /* Corrected layout to prevent vertical clipping on smaller viewports */
       body { 
         margin: 0; 
         padding: 10px; 
@@ -28,7 +27,6 @@
         justify-content: flex-start; 
       }
       
-      /* Viewport height caps (65vh) guarantee layout fits on standard screens */
       #ui-container, #canvas-wrapper, #settings-panel { 
         width: 100%; 
         max-width: min(92vw, 65vh); 
@@ -95,7 +93,6 @@
   </head>
   <body>
 
-    <!-- Telemetry Readout Dashboard -->
     <div id="ui-container">
       <div class="data-box">Time Elapsed<div id="val-t" class="data-val">0.00s</div></div>
       <div class="data-box">Monkey Height (Y)<div id="val-my" class="data-val">3.50m</div></div>
@@ -103,12 +100,10 @@
       <div class="data-box">Status<div id="val-status" class="data-val" style="color:#4cd137;">Ready</div></div>
     </div>
 
-    <!-- Main Workspace Canvas -->
     <div id="canvas-wrapper">
       <canvas id="paintCanvas" width="900" height="900"></canvas>
     </div>
 
-    <!-- Configuration Controllers Panel -->
     <div id="settings-panel">
       <div class="slider-group">
         <label>Firing Speed: <span id="lbl-speed" style="color:#00a8ff;">15 m/s</span></label>
@@ -124,7 +119,6 @@
       </div>
     </div>
 
-    <!-- Primary Control Array -->
     <div id="controls">
       <button id="fire-btn" onclick="toggleSimulation()">FIRE</button>
       <button id="slow-btn" onclick="toggleSlowMo()">SLOW-MO: OFF</button>
@@ -133,36 +127,31 @@
     <script>
       let canvas, ctx;
       
-      // Real-world physics constants (in meters and seconds)
       const g = 9.8; 
 
-      // Boundary Offsets (Provides padding for coordinate grid drawing to prevent browser edge cutoffs)
-      const gridOffsetLeft = 100;    // Generous gap on left side for Y labels
-      const gridOffsetBottom = 100;  // Generous gap at bottom for X labels
+      const gridOffsetLeft = 100;    
+      const gridOffsetBottom = 100;  
       const gridOffsetRight = 60;
       const gridOffsetTop = 60;
       
-      const barrelLength = 0.3;      // Gun barrel length in meters
+      // Removed gun barrel length to set the bullet perfectly at the starting drag point
+      const barrelLength = 0;      
 
-      // Coordinates mapping: meters to screen pixels
       function toPixels(x_m, y_m) {
         let px = gridOffsetLeft + (x_m / 4.0) * (900 - gridOffsetLeft - gridOffsetRight);
         let py = (canvas.height - gridOffsetBottom) - (y_m / 4.0) * (900 - gridOffsetTop - gridOffsetBottom);
         return { x: px, y: py };
       }
 
-      // Coordinates mapping: screen pixels to meters
       function toMeters(px, py) {
         let x_m = ((px - gridOffsetLeft) / (900 - gridOffsetLeft - gridOffsetRight)) * 4.0;
         let y_m = (((canvas.height - gridOffsetBottom) - py) / (900 - gridOffsetTop - gridOffsetBottom)) * 4.0;
         return { x: x_m, y: y_m };
       }
 
-      // Target physics variables (in meters)
       let launchVelocity = 15; 
       let timeSpeedScale = 1.0; 
 
-      // Positions in real world METERS
       let h_m = { x: 0.5, y: 0.5 };
       let monkey_start_m = { x: 3.5, y: 3.5 };
       
@@ -176,7 +165,7 @@
       let bulletHistory = [];
       let monkeyHistory = [];
       
-      let draggedEntity = null; // 'hunter' or 'monkey'
+      let draggedEntity = null; 
 
       window.onload = function() {
         canvas = document.getElementById('paintCanvas');
@@ -186,7 +175,6 @@
         updateSliders();
       };
 
-      // Math calculating precise muzzle position to launch bullet
       function getMuzzleCoords() {
         const dx = monkey_start_m.x - h_m.x;
         const dy = monkey_start_m.y - h_m.y;
@@ -198,10 +186,9 @@
         };
       }
 
-      // Handle Mouse/Touch Interaction Dragging
       function setupPointerEvents() {
         canvas.addEventListener('pointerdown', (e) => {
-          if (isSimulating) return; // Prevent drag during firing sequence
+          if (isSimulating) return; 
           
           const rect = canvas.getBoundingClientRect();
           const scaleX = canvas.width / rect.width;
@@ -238,7 +225,6 @@
             h_m.x = Math.max(0.0, Math.min(monkey_start_m.x - 0.5, coords.x));
             h_m.y = Math.max(0.0, Math.min(4.0, coords.y));
             
-            // Re-anchor bullet to new muzzle point
             const muzzle = getMuzzleCoords();
             bullet_m.x = muzzle.x;
             bullet_m.y = muzzle.y;
@@ -248,13 +234,11 @@
             monkey_m.x = monkey_start_m.x;
             monkey_m.y = monkey_start_m.y;
             
-            // Sync with settings UI panel
             document.getElementById('sld-dist').value = monkey_start_m.x;
             document.getElementById('sld-height').value = monkey_start_m.y;
             document.getElementById('lbl-dist').innerText = monkey_start_m.x.toFixed(1) + " m";
             document.getElementById('lbl-height').innerText = monkey_start_m.y.toFixed(1) + " m";
 
-            // Re-anchor bullet to new muzzle point
             const muzzle = getMuzzleCoords();
             bullet_m.x = muzzle.x;
             bullet_m.y = muzzle.y;
@@ -286,22 +270,18 @@
         resetSimulationState();
       }
 
-      // Helper function to paint easy-to-read text badges over grid lines
       function drawLabelBadge(text, x, y, color) {
         ctx.save();
         ctx.font = 'bold 15px system-ui, sans-serif';
         const txtWidth = ctx.measureText(text).width;
         
-        // Draw pill background
         ctx.fillStyle = 'rgba(26, 26, 26, 0.85)';
         ctx.fillRect(x - txtWidth/2 - 8, y - 13, txtWidth + 16, 24);
         
-        // Draw pill border
         ctx.strokeStyle = '#485460';
         ctx.lineWidth = 1;
         ctx.strokeRect(x - txtWidth/2 - 8, y - 13, txtWidth + 16, 24);
         
-        // Draw text coordinate data
         ctx.fillStyle = color;
         ctx.textAlign = 'center';
         ctx.fillText(text, x, y + 4);
@@ -312,10 +292,9 @@
         if (!ctx) return; 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 1. Grid Background (Drawing real meters 0m to 4m with bold axis borders)
+        // 1. Grid Background 
         ctx.font = 'bold 20px system-ui, sans-serif';
 
-        // Draw vertical grid lines (X-Axis labels)
         for (let i = 0; i <= 4; i++) {
           let pt1 = toPixels(i, 0);
           let pt2 = toPixels(i, 4);
@@ -324,21 +303,19 @@
           ctx.moveTo(pt1.x, pt1.y); 
           ctx.lineTo(pt2.x, pt2.y);
           if (i === 0 || i === 4) {
-            ctx.strokeStyle = '#718093'; // Outer layout borders
+            ctx.strokeStyle = '#718093'; 
             ctx.lineWidth = 3;
           } else {
-            ctx.strokeStyle = '#2f3542'; // Inner grid divisions
+            ctx.strokeStyle = '#2f3542'; 
             ctx.lineWidth = 1;
           }
           ctx.stroke();
           
-          // Render X coordinates labels underneath grid safely
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'center';
           ctx.fillText(i + "m", pt1.x, pt1.y + 35);
         }
         
-        // Draw horizontal grid lines (Y-Axis labels)
         for (let j = 0; j <= 4; j++) {
           let pt1 = toPixels(0, j);
           let pt2 = toPixels(4, j);
@@ -355,13 +332,11 @@
           }
           ctx.stroke();
           
-          // Render Y coordinates labels to the left of grid safely
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'right';
           ctx.fillText(j + "m", pt1.x - 20, pt1.y + 7);
         }
 
-        // Convert coordinates from meters to screen viewport pixels
         let h_pt = toPixels(h_m.x, h_m.y);
         let m_pt = toPixels(monkey_m.x, monkey_m.y);
         let b_pt = toPixels(bullet_m.x, bullet_m.y);
@@ -373,7 +348,7 @@
         ctx.fillStyle = 'rgba(231, 76, 60, 0.4)';  
         monkeyHistory.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, Math.PI*2); ctx.fill(); });
 
-        // 3. Precision Aiming Path Line (Drawn from Muzzle tip to monkey center)
+        // 3. Precision Aiming Path Line
         const muzzle = getMuzzleCoords();
         const muz_pt = toPixels(muzzle.x, muzzle.y);
         if (!isSimulating) {
@@ -384,28 +359,13 @@
           ctx.setLineDash([]);
         }
 
-        // 4. Weapon Assembly Components (Rotates dynamically toward Target)
-        ctx.save();
-        ctx.translate(h_pt.x, h_pt.y);
-        ctx.rotate(muzzle.angle);
-        ctx.fillStyle = '#485460';
-        const barrelLenPx = barrelLength * (900 - gridOffsetLeft - gridOffsetRight) / 4.0;
-        ctx.fillRect(0, -12, barrelLenPx, 24); // Solid gun barrel
-        ctx.restore();
-
-        // Mechanical circular hinge base
-        ctx.fillStyle = '#1e272e';
-        ctx.strokeStyle = '#718093';
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(h_pt.x, h_pt.y, 20, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-
-        // 5. Falling Target Monkey (Symmetrical target crosshair)
+        // 4. Falling Target Monkey 
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath(); ctx.arc(m_pt.x, m_pt.y, 18, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#ffffff';
         ctx.beginPath(); ctx.arc(m_pt.x, m_pt.y, 6, 0, Math.PI * 2); ctx.fill();
 
-        // 6. Flying Bullet Projectile (Bright high-visibility blue with neon shadow)
+        // 5. Flying Bullet Projectile 
         ctx.save();
         ctx.shadowColor = '#00f3ff';
         ctx.shadowBlur = 10;
@@ -415,18 +375,15 @@
         ctx.beginPath(); ctx.arc(b_pt.x, b_pt.y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.restore();
 
-        // 7. Render Coordinates Labels inside high-contrast badges
+        // 6. Render Coordinates Labels (Gun label removed!)
         let bLabelY = b_pt.y + 35;
-        if (bullet_m.y < 0.5) bLabelY = b_pt.y - 30; // Shift upward if near ground boundary
+        if (bullet_m.y < 0.5) bLabelY = b_pt.y - 30; 
         drawLabelBadge(`Bullet: (${bullet_m.x.toFixed(2)}m, ${bullet_m.y.toFixed(2)}m)`, b_pt.x, bLabelY, '#00a8ff');
         
         let mLabelY = m_pt.y - 25;
-        if (monkey_m.y > 3.5) mLabelY = m_pt.y + 35; // Shift downward if near ceiling boundary
+        if (monkey_m.y > 3.5) mLabelY = m_pt.y + 35; 
         drawLabelBadge(`Monkey: (${monkey_m.x.toFixed(2)}m, ${monkey_m.y.toFixed(2)}m)`, m_pt.x, mLabelY, '#e74c3c');
 
-        drawLabelBadge(`Gun: (${h_m.x.toFixed(2)}m, ${h_m.y.toFixed(2)}m)`, h_pt.x, h_pt.y - 32, '#4cd137');
-
-        // Keep HTML dashboard display numbers synchronized
         document.getElementById('val-my').innerText = monkey_m.y.toFixed(2) + "m";
         document.getElementById('val-by').innerText = bullet_m.y.toFixed(2) + "m";
       }
@@ -467,7 +424,6 @@
         runtimeElapsed += deltaTime * timeSpeedScale;
         let t = runtimeElapsed;
 
-        // Determine starting coordinates mathematically from barrel muzzle
         const muzzle = getMuzzleCoords();
         const dx_m = monkey_start_m.x - h_m.x;
         const dy_m = monkey_start_m.y - h_m.y;
@@ -476,7 +432,6 @@
         const vx_m = (dx_m / targetHypotenuse) * launchVelocity;
         const vy_m = (dy_m / targetHypotenuse) * launchVelocity;
 
-        // Kinematic trajectory equations
         let currentBulletX = muzzle.x + (vx_m * t);
         let currentBulletY = muzzle.y + (vy_m * t) - (0.5 * g * t * t);
         let currentMonkeyY = monkey_start_m.y - (0.5 * g * t * t);
@@ -485,18 +440,15 @@
         bullet_m.x = currentBulletX;
         bullet_m.y = currentBulletY;
 
-        // Store flight tracking traces
         let b_trace = toPixels(bullet_m.x, bullet_m.y);
         let m_trace = toPixels(monkey_m.x, monkey_m.y);
         bulletHistory.push({ x: b_trace.x, y: b_trace.y });
         monkeyHistory.push({ x: m_trace.x, y: m_trace.y });
 
-        // Update Dashboard timer clock
         document.getElementById('val-t').innerText = t.toFixed(2) + "s";
 
         drawLaboratoryEnvironment();
 
-        // 1. Collision Intersection confirmation
         if ((vx_m > 0 && bullet_m.x >= monkey_m.x) || (vx_m < 0 && bullet_m.x <= monkey_m.x)) {
           isSimulating = false;
           bullet_m.x = monkey_m.x;
@@ -510,7 +462,6 @@
           return;
         }
 
-        // 2. Ground limit boundaries check
         if (monkey_m.y <= 0 || bullet_m.y <= 0) {
           isSimulating = false;
           document.getElementById('val-status').innerText = "Grounded";
@@ -530,7 +481,6 @@
         
         monkey_m = { x: monkey_start_m.x, y: monkey_start_m.y };
         
-        // Spawn bullet precisely resting at muzzle tip
         const muzzle = getMuzzleCoords();
         bullet_m = { x: muzzle.x, y: muzzle.y };
         

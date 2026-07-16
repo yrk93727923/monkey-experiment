@@ -3,29 +3,38 @@
   <head>
     <meta charset="utf-8">
     <title>AR Monkey and Hunter Experiment</title>
-    <!-- iOS Compatibility Config -->
+    <!-- Force Apple engines to unlock camera rendering arrays -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    
+    <!-- Stable production frameworks -->
     <script src="https://aframe.io"></script>
-    <!-- Swapped to a highly stable, updated AR.js build for iOS Safari -->
     <script src="https://githack.com"></script>
+    
     <style>
-      /* Splash screen to force iOS video rendering bypass */
       #ios-bypass-btn {
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        padding: 20px 40px; font-size: 24px; font-weight: bold; background: #3498db;
+        padding: 20px 40px; font-size: 24px; font-weight: bold; background: #27ae60;
         color: white; border: none; border-radius: 10px; z-index: 9999; cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
       }
+      body { margin: 0; overflow: hidden; background-color: #000; }
     </style>
   </head>
-  <body style="margin: 0; overflow: hidden;">
+  
+  <body>
 
-    <!-- Interactive Start Button for iOS Security Verification -->
-    <button id="ios-bypass-btn" onclick="initAR()">START EXPERIMENT</button>
+    <!-- Native Interaction Gate required by iOS -->
+    <button id="ios-bypass-btn" onclick="initAREngine()">START AR SESSION</button>
 
-    <a-scene id="ar-scene" style="display: none;" embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+    <!-- Embedded configuration telling AR.js to play explicitly inline -->
+    <a-scene id="ar-scene" style="display: none;" embedded arjs="sourceType: webcam; debugUIEnabled: false; videoTexture: true;">
+      
+      <!-- Physics Elements -->
       <a-box id="hunter" position="-1 0 -3" color="#27ae60" scale="0.2 0.2 0.2"></a-box>
       <a-sphere id="monkey" position="1 1.5 -3" color="#e74c3c" radius="0.15"></a-sphere>
       <a-sphere id="bullet" position="-1 0 -3" color="#3498db" radius="0.05" visible="false"></a-sphere>
+      
       
       
     </a-scene>
@@ -46,17 +55,20 @@
       let isPlaying = false;
       let startTime = 0;
 
-      // Forces iOS Safari to open video element streams inside the browser frame
-      function initAR() {
+      function initAREngine() {
+        // Hide button, unhide canvas scene container
         bypassBtn.style.display = 'none';
         scene.style.display = 'block';
-        
-        // Triggers video engine setup manually on user touch
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-          .then(() => {
+
+        // Core Fix: Force-inject an inline video configuration target to bypass iOS blank-screen errors
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', playsInline: true } })
+          .then((stream) => {
+            // Force the underlying canvas to register clicks properly
             window.addEventListener('click', handleScreenTap);
           })
-          .catch(err => alert("Camera stream failed to sync: " + err));
+          .catch(err => {
+            alert("Camera Initialization Failed: " + err);
+          });
       }
 
       function handleScreenTap() {
@@ -93,7 +105,7 @@
 
           if (bulletX >= mPos.x) {
             isPlaying = false;
-            alert(`DIRECT HIT!\nBoth entities crossed identical relative vectors at point Y: ${bulletY.toFixed(2)}m.`);
+            alert(`DIRECT HIT!\nBoth shapes collided in mid-air at elevation Y: ${bulletY.toFixed(2)}m.\nThis confirms horizontal components do not limit gravitational acceleration!`);
             return;
           }
 

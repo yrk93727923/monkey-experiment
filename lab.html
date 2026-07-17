@@ -69,7 +69,7 @@
         border-radius: 10px; 
         margin-top: 10px; 
         display: grid; 
-        grid-template-columns: 1fr; /* Updated to 1 column for the single slider */
+        grid-template-columns: 1fr; 
         gap: 15px; 
       }
       .slider-group { display: flex; flex-direction: column; font-size: 14px; font-weight: bold; }
@@ -88,8 +88,8 @@
 
     <div id="ui-container">
       <div class="data-box">Time Elapsed<div id="val-t" class="data-val">0.00s</div></div>
-      <div class="data-box">Monkey Height (Y)<div id="val-my" class="data-val">3.50m</div></div>
-      <div class="data-box">Bullet Height (Y)<div id="val-by" class="data-val">0.50m</div></div>
+      <div class="data-box">Monkey Height (Y)<div id="val-my" class="data-val">0.80m</div></div>
+      <div class="data-box">Bullet Height (Y)<div id="val-by" class="data-val">0.20m</div></div>
       <div class="data-box">Status<div id="val-status" class="data-val" style="color:#4cd137;">Ready</div></div>
     </div>
 
@@ -121,26 +121,29 @@
       
       const barrelLength = 0;      
 
+      // Updated to map Y scale to 1.0 instead of 4.0
       function toPixels(x_m, y_m) {
         let px = gridOffsetLeft + (x_m / 4.0) * (900 - gridOffsetLeft - gridOffsetRight);
-        let py = (canvas.height - gridOffsetBottom) - (y_m / 4.0) * (900 - gridOffsetTop - gridOffsetBottom);
+        let py = (canvas.height - gridOffsetBottom) - (y_m / 1.0) * (900 - gridOffsetTop - gridOffsetBottom);
         return { x: px, y: py };
       }
 
+      // Updated to map Y scale to 1.0 instead of 4.0
       function toMeters(px, py) {
         let x_m = ((px - gridOffsetLeft) / (900 - gridOffsetLeft - gridOffsetRight)) * 4.0;
-        let y_m = (((canvas.height - gridOffsetBottom) - py) / (900 - gridOffsetTop - gridOffsetBottom)) * 4.0;
+        let y_m = (((canvas.height - gridOffsetBottom) - py) / (900 - gridOffsetTop - gridOffsetBottom)) * 1.0;
         return { x: x_m, y: y_m };
       }
 
       let launchVelocity = 15; 
       let timeSpeedScale = 1.0; 
 
-      let h_m = { x: 0.5, y: 0.5 };
-      let monkey_start_m = { x: 3.5, y: 3.5 };
+      // Default positions updated for new 1.0m Y-axis
+      let h_m = { x: 0.5, y: 0.2 };
+      let monkey_start_m = { x: 3.5, y: 0.8 };
       
-      let monkey_m = { x: 3.5, y: 3.5 }; 
-      let bullet_m = { x: 0.5, y: 0.5 };
+      let monkey_m = { x: 3.5, y: 0.8 }; 
+      let bullet_m = { x: 0.5, y: 0.2 };
 
       let isSimulating = false;
       let runtimeElapsed = 0;
@@ -205,16 +208,17 @@
           
           let coords = toMeters(x_px, y_px);
           
+          // Max limits for Y updated to 1.0
           if (draggedEntity === 'hunter') {
             h_m.x = Math.max(0.0, Math.min(monkey_start_m.x - 0.5, coords.x));
-            h_m.y = Math.max(0.0, Math.min(4.0, coords.y));
+            h_m.y = Math.max(0.0, Math.min(1.0, coords.y));
             
             const muzzle = getMuzzleCoords();
             bullet_m.x = muzzle.x;
             bullet_m.y = muzzle.y;
           } else if (draggedEntity === 'monkey') {
             monkey_start_m.x = Math.max(h_m.x + 0.5, Math.min(4.0, coords.x));
-            monkey_start_m.y = Math.max(0.0, Math.min(4.0, coords.y));
+            monkey_start_m.y = Math.max(0.0, Math.min(1.0, coords.y));
             monkey_m.x = monkey_start_m.x;
             monkey_m.y = monkey_start_m.y;
 
@@ -268,9 +272,10 @@
         // 1. Grid Background 
         ctx.font = 'bold 20px system-ui, sans-serif';
 
+        // X-Axis (0 to 4m)
         for (let i = 0; i <= 4; i++) {
           let pt1 = toPixels(i, 0);
-          let pt2 = toPixels(i, 4);
+          let pt2 = toPixels(i, 1.0); // Line goes up to 1.0m now
           
           ctx.beginPath(); 
           ctx.moveTo(pt1.x, pt1.y); 
@@ -289,14 +294,16 @@
           ctx.fillText(i + "m", pt1.x, pt1.y + 35);
         }
         
-        for (let j = 0; j <= 4; j++) {
+        // Y-Axis (0 to 1.0m in 0.1 increments)
+        for (let step = 0; step <= 10; step++) {
+          let j = step / 10;
           let pt1 = toPixels(0, j);
           let pt2 = toPixels(4, j);
           
           ctx.beginPath(); 
           ctx.moveTo(pt1.x, pt1.y); 
           ctx.lineTo(pt2.x, pt2.y);
-          if (j === 0 || j === 4) {
+          if (step === 0 || step === 10) {
             ctx.strokeStyle = '#718093'; 
             ctx.lineWidth = 3;
           } else {
@@ -307,7 +314,7 @@
           
           ctx.fillStyle = '#ffffff';
           ctx.textAlign = 'right';
-          ctx.fillText(j + "m", pt1.x - 20, pt1.y + 7);
+          ctx.fillText(j.toFixed(1) + "m", pt1.x - 20, pt1.y + 7);
         }
 
         let m_pt = toPixels(monkey_m.x, monkey_m.y);
@@ -349,11 +356,11 @@
 
         // 6. Render Coordinates Labels
         let bLabelY = b_pt.y + 35;
-        if (bullet_m.y < 0.5) bLabelY = b_pt.y - 30; 
+        if (bullet_m.y < 0.15) bLabelY = b_pt.y - 30; // Adjusted for new scale
         drawLabelBadge(`Bullet: (${bullet_m.x.toFixed(2)}m, ${bullet_m.y.toFixed(2)}m)`, b_pt.x, bLabelY, '#00a8ff');
         
         let mLabelY = m_pt.y - 25;
-        if (monkey_m.y > 3.5) mLabelY = m_pt.y + 35; 
+        if (monkey_m.y > 0.85) mLabelY = m_pt.y + 35; // Adjusted for new scale
         drawLabelBadge(`Monkey: (${monkey_m.x.toFixed(2)}m, ${monkey_m.y.toFixed(2)}m)`, m_pt.x, mLabelY, '#e74c3c');
 
         document.getElementById('val-my').innerText = monkey_m.y.toFixed(2) + "m";
